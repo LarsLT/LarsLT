@@ -16,7 +16,7 @@
 ## 🚀 About Me
 
 - 🔭 I build software and also the hardware it runs on: volumetric displays, smart mirrors, LED installations and other ESP32 projects
-- 💻 I mostly write **C++**, **Rust** and **Go**
+- 💻 I mostly write **C++**, **Rust** & **Go**
 - 📱 Right now I am building hardware to spend less time on my phone
 - 📫 You can reach me at **LarsTokkie@gmail.com**
 
