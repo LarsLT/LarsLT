@@ -195,9 +195,3 @@ gauge with a needle, deep-space ticker (Voyager 1 and 2 distance, next near-Eart
 pass, latest solar flare class), APOD image of the day, comet visibility, Starlink train
 passes, and lunar eclipses. That last one is nearly free once the terminator layer exists,
 since visibility is just the night hemisphere.
-
-## Note on repo rules
-
-`.claude/CLAUDE.md` here is ESRead carryover and describes an ESP-IDF C++ project. Those
-C++ and ESP-IDF rules do not apply to this Python tooling. The git rules do: work on `main`,
-one-line Conventional Commit messages, never push.

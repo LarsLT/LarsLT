@@ -1,6 +1,6 @@
 # dev/closed/
 
-Work that has **landed**: implemented, PR reviewed, and merged. Moved here from
+Work that has **landed**: implemented and committed on `main`. Moved here from
 `dev/active/` once that's true.
 
 Kept as institutional memory — why we did it, what we rejected. Tracked in git.

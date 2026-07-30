@@ -19,10 +19,10 @@ proposed/  →  active/  →  closed/
   chat. **Tracked** in git so in-flight work syncs across machines (e.g. PC and
   laptop). See `active/README.md` for the per-folder layout and `PLAN.md` template.
 
-- **`closed/<slug>/`** — work that has **landed**: implemented, PR reviewed, and
-  merged. Move the folder here from `active/` once that's true. Tracked in git as
-  institutional memory (why we did it, what we rejected). Before moving, promote
-  anything with lasting value (conventions, architecture) into `.claude/docs/`.
+- **`closed/<slug>/`** — work that has **landed**: implemented and committed on `main`.
+  Move the folder here from `active/` once that's true. Tracked in git as institutional
+  memory (why we did it, what we rejected). Before moving, promote anything with lasting
+  value (conventions, gotchas) into `.claude/docs/`.
 
 ## Moving between stages
 
@@ -30,7 +30,7 @@ proposed/  →  active/  →  closed/
 # idea graduates to real work
 git mv .claude/dev/proposed/<slug> .claude/dev/active/<slug>
 
-# work lands (PR reviewed + merged)
+# work lands (implemented + committed on main)
 git mv .claude/dev/active/<slug> .claude/dev/closed/<slug>
 ```
 

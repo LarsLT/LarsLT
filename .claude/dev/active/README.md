@@ -30,8 +30,8 @@ This folder is the **active** stage of `proposed/ → active/ → closed/`. See
 1. Create the folder with `PLAN.md` when work starts (or `git mv` it in from
    `dev/proposed/` if it began as a parked idea).
 2. Update as decisions get made — `PLAN.md` is the source of truth, not chat.
-3. When the feature **lands** (implemented, PR reviewed, merged):
-   - **Promote insights** with lasting value to `.claude/docs/` (architecture/conventions).
+3. When the feature **lands** (implemented and committed on `main`):
+   - **Promote insights** with lasting value to `.claude/docs/`.
    - **Move the folder** to `dev/closed/<feature>/` with `git mv` (both stages are
      tracked in git).
    - **Delete** instead only if nothing's worth keeping.
