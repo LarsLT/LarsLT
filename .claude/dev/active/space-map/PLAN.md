@@ -145,9 +145,11 @@ The last good Launch Library response is cached on the output branch as a 429 fa
       holds nothing but the SVG. The camo checks run in the job, and all three degradation
       paths were exercised locally. The SWPC probe logs its status code and cannot fail
       the run.  **Still unrun on a real runner: needs a `workflow_dispatch` after push.**
-- [ ] M10. README: new section above the snake, embedding
+- [x] M10. README: new section above the snake, embedding
       `raw.githubusercontent.com/LarsLT/LarsLT/space/space-map.svg`, plus the static space
-      paragraph. Claude drafts 3-5 lines, Lars rewrites them in his own voice.
+      paragraph and a note about the 60-day inactivity pause. **The paragraph is a draft in
+      Claude's voice and wants rewriting in Lars's.** No `<picture>` pair, the map is
+      dark-only by design.
 
 ## Decisions
 

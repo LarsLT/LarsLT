@@ -66,6 +66,22 @@
   </picture>
 </div>
 
+## 🛰️ What the Sky Is Doing Right Now
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/LarsLT/LarsLT/space/space-map.svg" width="100%" alt="World map showing the day/night terminator, the auroral ovals, the next solar eclipse path, the ISS ground track and upcoming rocket launches"/>
+</div>
+
+Space is the one hobby where the hardware is out of my reach, so I settle for watching it.
+This map rebuilds itself every 30 minutes from live data: where the sun is, how far south
+the aurora reaches tonight, which pads are flying this month, and where the ISS is right
+now. The animation carries its own clock, so the night side keeps sweeping west at the
+speed the Earth actually turns, even between rebuilds.
+
+> Built with a small Go program in [`tools/space-map`](tools/space-map). If the map ever
+> looks frozen, the scheduled workflow has been paused for repo inactivity, which GitHub
+> does after 60 days.
+
 ## 🐍 Contribution Graph
 
 <div align="center">
