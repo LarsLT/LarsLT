@@ -64,6 +64,7 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 		{Colour: render.SunCore, Label: "daylight"},
 	}
 
+	addAurora(ctx, client, &sky, now)
 	addLaunches(ctx, client, &sky, now)
 
 	svg := render.Document(sky)
@@ -83,6 +84,50 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 // terminatorStepDeg is how finely the day/night boundary is traced. Two degrees
 // is under three pixels of spacing on a 1000px map.
 const terminatorStepDeg = 2.0
+
+// ovalStepDeg traces the auroral edges at the same resolution as the sun's.
+const ovalStepDeg = 2.0
+
+// homeLon is the meridian the aurora sentence is written for. The map is on a
+// Dutch profile, so "how far south" means how far south over the Netherlands.
+const homeLon = 5.0
+
+// addAurora draws both ovals from the current Kp and says in plain words how
+// far south the glow reaches.
+func addAurora(ctx context.Context, client *sources.Client, sky *render.Sky, now time.Time) {
+	kp, err := sources.Kp(ctx, client, now)
+	if err != nil {
+		log.Printf("aurora unavailable: %v", err)
+		return
+	}
+
+	for _, north := range []bool{true, false} {
+		ring := astro.Oval(kp.Kp, north, ovalStepDeg)
+		sky.Aurora = append(sky.Aurora, render.Aurora{
+			Path:  render.PolygonPath(ring, 0),
+			North: north,
+		})
+	}
+
+	reach := astro.GeographicLatAt(astro.VisibleFrom(kp.Kp), homeLon, true)
+	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.AuroraCore, Label: "auroral oval"})
+	sky.Ticker = append(sky.Ticker, auroraLine(kp.Kp, reach))
+
+	log.Printf("Kp %.2f at %s, visible down to %.1fN over the Netherlands",
+		kp.Kp, kp.At.Format(time.RFC3339), reach)
+}
+
+// auroraLine turns a Kp number into the thing people actually want to know.
+func auroraLine(kp, reach float64) string {
+	where := fmt.Sprintf("visible down to %.0fN", reach)
+	if reach <= dutchLat {
+		where = "visible from the Netherlands"
+	}
+	return fmt.Sprintf("Kp %.1f  ·  aurora %s", kp, where)
+}
+
+// dutchLat is roughly the middle of the country, the line the sentence flips on.
+const dutchLat = 52.5
 
 // addLaunches puts a dot on every pad flying in the next 30 days, rings the
 // soonest one, and lists the next few under the map.

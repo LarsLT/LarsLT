@@ -13,13 +13,13 @@ const (
 	MapW    = geo.MapW
 	MapH    = geo.MapH
 	FooterY = MapH
-	FooterH = 76.0
+	FooterH = 96.0
 
 	LegendY      = FooterY + 22
-	TickerY      = FooterY + 46
-	TickerLineH  = 20
+	TickerY      = FooterY + 48
+	TickerLineH  = 18
 	Pad          = 16
-	MaxTickerRow = 2
+	MaxTickerRow = 3
 )
 
 // Palette. The accent matches the blue already used across the profile README.
@@ -35,7 +35,7 @@ const (
 	Text       = "#e6edf3"
 	Muted      = "#8b98a9"
 	Dim        = "#5a6678"
-	Aurora     = "#3ddc97"
+	AuroraCore = "#3ddc97"
 	AuroraEdge = "#4fd1ff"
 	Launch     = "#ff7a45"
 	LaunchNext = "#ffc46b"

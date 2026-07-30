@@ -128,8 +128,9 @@ The last good Launch Library response is cached on the output branch as a 429 fa
       label, ticker lines. Cached under `-cache`, and all three degradation paths are
       verified: live, cache fallback on a dead network, and the layer dropping with no
       cache at all.
-- [ ] M5. Aurora: GFZ Kp, oval geometry, visibility sentence. Probe SWPC OVATION from the
-      runner in the same job and log the status code, then decide on the enrichment layer.
+- [x] M5. Aurora: GFZ Kp, oval geometry, visibility sentence. Both ovals are dipole small
+      circles around the geomagnetic poles, checked by test to hold their radius exactly.
+      The SWPC OVATION probe moves to M9, since it can only be answered from a runner.
 - [ ] M6. `cmd/buildeclipses`: parse the NASA `SEpath` tables for solar eclipses
       2026-2030 into `data/eclipses.json`, then the band and umbra layer.
 - [ ] M7. ISS: Celestrak TLE, SGP4, ground track for plus or minus one orbit, dot on a CSS
@@ -156,6 +157,9 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 - Eclipse paths precomputed and committed. A handful of solar eclipses per year, geometry
   fixed centuries ahead. Scraping NASA every 30 minutes would be pointless traffic against
   a page that never changes.
+- The oval is drawn all the way round, including the daylit half, the way SWPC's own
+  maps draw it. Clipping it to the night side would be truer, but the night side is a CSS
+  animation, so the clip would have to move with it. Not worth the machinery.
 - Kp-derived oval as the primary aurora layer, OVATION as optional enrichment. Verified
   reachable beats prettier but blocked. The oval is also cleaner to draw than a 65k-point
   probability grid.

@@ -77,6 +77,22 @@ func graticule(b *strings.Builder) {
 		eq, Num(MapW), eq, Graticule)
 }
 
+// Aurora is one hemisphere's glow band, already projected and closed.
+type Aurora struct {
+	Path  string
+	North bool
+}
+
+func aurora(b *strings.Builder, bands []Aurora) {
+	for _, band := range bands {
+		gradient := "auroraN"
+		if !band.North {
+			gradient = "auroraS"
+		}
+		fmt.Fprintf(b, `<path class="glow" d="%s" fill="url(#%s)"/>`, band.Path, gradient)
+	}
+}
+
 // LaunchPad is a projected launch site. The soonest one gets the ring and the
 // only label, so a crowded coast stays readable.
 type LaunchPad struct {
