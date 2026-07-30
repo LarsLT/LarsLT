@@ -139,27 +139,6 @@ func eclipse(b *strings.Builder, e *Eclipse) {
 		EclipseColour, e.Umbra, e.Seconds)
 }
 
-// Streak is one meteor, drawn as a short diagonal dash that fades as it falls.
-type Streak struct {
-	X, Y  float64
-	Scale float64
-	Delay float64
-}
-
-func meteors(b *strings.Builder, streaks []Streak) {
-	if len(streaks) == 0 {
-		return
-	}
-	fmt.Fprintf(b, `<g stroke="%s" stroke-width="1.1" stroke-linecap="round">`, Meteor)
-	for _, s := range streaks {
-		length := 7 * s.Scale
-		fmt.Fprintf(b,
-			`<line class="streak" x1="%s" y1="%s" x2="%s" y2="%s" style="animation-delay:%ss"/>`,
-			Num(s.X), Num(s.Y), Num(s.X-length), Num(s.Y-length*0.55), Num2(s.Delay))
-	}
-	b.WriteString(`</g>`)
-}
-
 // Station is the ISS: its ground track, and the leg of that track the station
 // is riding right now.
 type Station struct {

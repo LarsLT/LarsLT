@@ -39,7 +39,6 @@ const (
 	LaunchNext    = "#ffc46b"
 	EclipseColour = "#ffd166"
 	ISS           = "#7fd1ff"
-	Meteor        = "#cbb2ff"
 	SunGlow       = "#ffd98a"
 	SunCore       = "#fff3c4"
 	FontSans      = "'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
