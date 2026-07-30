@@ -48,8 +48,10 @@ jobs:
         run: go test ./...
 
       # NOAA blocks the dev machine outright. If a runner gets through, the real
-      # OVATION grid becomes an option on top of the Kp-derived oval.
+      # OVATION grid becomes an option on top of the Kp-derived oval. This is a
+      # question, not a check, so it only runs when the build is kicked by hand.
       - name: Probe SWPC OVATION
+        if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: |
           code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
@@ -59,18 +61,30 @@ jobs:
       - name: Build the map
         run: go run . -out dist -cache cache
 
-      # Camo blocks external fetches and GitHub strips scripts, so either one in
-      # the output means a broken image on the profile.
+      # Camo blocks external fetches and GitHub strips scripts and SMIL, so any
+      # of them in the output means a broken image on the profile. Every check
+      # is written as an if/exit: a bare `! grep` is exempt from `set -e` and
+      # would pass the step no matter what it found.
       - name: Check nothing GitHub strips crept in
         run: |
-          ! grep -q '<script' dist/space-map.svg
-          if grep -oE 'https?://[^"]+' dist/space-map.svg |
-             grep -v '^http://www\.w3\.org/2000/svg$'; then
+          if grep -qiE '<script|<animate|<set |onload=|javascript:' dist/space-map.svg; then
+            echo "GitHub strips one of script/SMIL/event handlers from the SVG"
+            exit 1
+          fi
+          # Only fetching attributes matter. Namespace names are w3.org URLs that
+          # nothing ever requests, so the whole domain is allowed.
+          if grep -oE '(href|src|xlink:href)="https?://[^"]+' dist/space-map.svg |
+             grep -v 'https\?://[^"]*w3\.org/'; then
             echo "external reference in the SVG"
             exit 1
           fi
           python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('dist/space-map.svg')"
-          du -h dist/space-map.svg
+          bytes=$(wc -c < dist/space-map.svg)
+          echo "space-map.svg is $bytes bytes"
+          if [ "$bytes" -gt 262144 ]; then
+            echo "over the 256 KB budget, camo will be slow"
+            exit 1
+          fi
 
       - name: Push the SVG to the space branch
         uses: crazy-max/ghaction-github-pages@v4

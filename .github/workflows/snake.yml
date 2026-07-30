@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# Two pushes in a minute would otherwise race to force-push the output branch.
+concurrency:
+  group: snake
+  cancel-in-progress: true
+
 jobs:
   generate:
     runs-on: ubuntu-latest

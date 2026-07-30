@@ -6,3 +6,8 @@ dist/
 
 # Last good upstream responses, kept only so a rate-limited run still draws
 cache/
+
+# Compiled generators, in case someone builds instead of go run
+/tools/space-map/space-map
+/tools/space-map/cmd/*/buildbasemap
+/tools/space-map/cmd/*/buildeclipses
