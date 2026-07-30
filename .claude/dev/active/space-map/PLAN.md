@@ -96,7 +96,7 @@ tools/space-map/
 ├── data/                    # committed, generated once, never fetched at runtime
 │   ├── basemap.json         # country path strings
 │   ├── eclipses.json        # solar eclipse paths 2026-2030
-│   └── meteor_showers.json  # IMO peak dates, radiants, ZHR
+│   └── showers.go           # IMO peak dates, radiants, ZHR
 └── cmd/{buildbasemap,buildeclipses}/  # one-off generators
 ```
 
@@ -136,7 +136,9 @@ The last good Launch Library response is cached on the output branch as a 429 fa
       eclipses, 48 KB. The umbra rides a CSS `offset-path`, confirmed in Chromium.
 - [x] M7. ISS: Celestrak TLE, ground track for plus or minus one orbit, dot on a CSS
       `offset-path`. No SGP4 and no `wheretheiss.at`, see Decisions.
-- [ ] M8. Meteor showers from the static table, streak layer.
+- [x] M8. Meteor showers from the static table, streak layer. The table is a Go slice in
+      `data/showers.go` rather than `meteor_showers.json`: nothing generates it, so a file
+      to unmarshal would only add a decode step and a way to get the shape wrong.
 - [ ] M9. `space-map.yml`: `*/30 * * * *`, `workflow_dispatch`, push on main filtered to
       `tools/space-map/**`. Push `dist/` to a `space` branch, not `output`, see Decisions.
       Verify degradation with `--offline` and with a forced 429.

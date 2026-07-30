@@ -22,6 +22,7 @@ type Sky struct {
 	Aurora     []Aurora
 	Eclipse    *Eclipse
 	Station    *Station
+	Meteors    []Streak
 	Launches   []LaunchPad
 	Legend     []LegendItem
 	Ticker     []string
@@ -66,6 +67,7 @@ func Document(sky Sky) string {
 	terminator(&b, sky.Terminator)
 	aurora(&b, sky.Aurora)
 	eclipse(&b, sky.Eclipse)
+	meteors(&b, sky.Meteors)
 	station(&b, sky.Station)
 	launchPads(&b, sky.Launches)
 	b.WriteString(`</g>`)
@@ -120,6 +122,9 @@ func writeStyle(b *strings.Builder) {
 		`.station{offset-rotate:0deg;animation-name:ride;animation-timing-function:linear;`+
 		`animation-iteration-count:infinite}`+
 		`@keyframes ride{from{offset-distance:0%%}to{offset-distance:100%%}}`+
+		`.streak{animation:streak 3.4s linear infinite;opacity:0}`+
+		`@keyframes streak{0%%,72%%{opacity:0;transform:translate(0,0)}`+
+		`78%%{opacity:.85}100%%{opacity:0;transform:translate(9px,5px)}}`+
 		`</style>`,
 		FontSans, FontMono, int(SolarDay.Seconds()), Num(MapW))
 }

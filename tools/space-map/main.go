@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -65,6 +66,7 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 		{Colour: render.SunCore, Label: "daylight"},
 	}
 
+	addMeteors(&sky, now)
 	addStation(ctx, client, &sky, now)
 	addEclipse(&sky, now)
 	addAurora(ctx, client, &sky, now)
@@ -87,6 +89,62 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 // terminatorStepDeg is how finely the day/night boundary is traced. Two degrees
 // is under three pixels of spacing on a 1000px map.
 const terminatorStepDeg = 2.0
+
+// A radiant is worth watching where it climbs well clear of the horizon, which
+// is a broad band of latitude either side of its declination.
+const (
+	radiantReach = 70.0
+	meteorSeed   = 1833 // the Leonid storm that started meteor science
+	maxStreaks   = 34
+)
+
+// addMeteors scatters streaks over the latitudes the busiest running shower is
+// seen from. Overlapping bands of dashes stop reading, so only one is drawn.
+func addMeteors(sky *render.Sky, now time.Time) {
+	shower, ok := data.StrongestShower(now)
+	if !ok {
+		log.Print("no meteor shower running")
+		return
+	}
+
+	north := math.Min(90, shower.RadiantDec+radiantReach)
+	south := math.Max(-90, shower.RadiantDec-radiantReach)
+	top, bottom := geo.Y(north), geo.Y(south)
+
+	// More meteors an hour, more streaks, but never a swarm.
+	count := min(maxStreaks, 8+shower.ZHR/5)
+	rng := rand.New(rand.NewSource(meteorSeed))
+	for range count {
+		sky.Meteors = append(sky.Meteors, render.Streak{
+			X:     rng.Float64() * geo.MapW,
+			Y:     top + rng.Float64()*(bottom-top),
+			Scale: 0.7 + rng.Float64()*0.7,
+			Delay: -rng.Float64() * 3.4,
+		})
+	}
+
+	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.Meteor, Label: "meteor shower"})
+	sky.Ticker = append(sky.Ticker, showerLine(shower, now))
+
+	log.Printf("%s active, %d streaks between %.0f and %.0f latitude",
+		shower.Name, count, south, north)
+}
+
+// showerLine says where the shower is in its run without pretending to count
+// down, since a baked string cannot.
+func showerLine(s data.Shower, now time.Time) string {
+	peak := time.Date(now.Year(), s.Peak.Month, s.Peak.Day, 0, 0, 0, 0, time.UTC)
+	switch days := s.PeakIn(now); {
+	case days == 0:
+		return fmt.Sprintf("%s peaking tonight  ·  up to %d an hour", s.Name, s.ZHR)
+	case days > 0:
+		return fmt.Sprintf("%s building  ·  peaks %s  ·  up to %d an hour",
+			s.Name, peak.Format("02 Jan"), s.ZHR)
+	default:
+		return fmt.Sprintf("%s fading  ·  peaked %s  ·  up to %d an hour",
+			s.Name, peak.Format("02 Jan"), s.ZHR)
+	}
+}
 
 // trackStep is how finely the ground track is sampled. Half a minute is about
 // four pixels of travel, so the curve stays smooth without bloating the file.
@@ -295,14 +353,15 @@ func addLaunches(ctx context.Context, client *sources.Client, sky *render.Sky, n
 	}
 	sky.Legend = append(sky.Legend,
 		render.LegendItem{Colour: render.LaunchNext, Label: "next launch"},
-		render.LegendItem{Colour: render.Launch, Label: "pad flying within 30 days"},
+		render.LegendItem{Colour: render.Launch, Label: "launch pad, next 30 days"},
 	)
 
 	log.Printf("%d launches from %d pads, next %s", len(launches), len(pads), launches[0].At.Format(time.RFC3339))
 }
 
-// tickerLaunches is how many flights fit under the map without crowding it.
-const tickerLaunches = 2
+// tickerLaunches is how many flights fit under the map without crowding it, now
+// that every other layer wants a line too.
+const tickerLaunches = 1
 
 func launchLabel(l sources.Launch) string {
 	return fmt.Sprintf("%s  %s", l.At.Format("02 Jan 15:04Z"), l.Name)
