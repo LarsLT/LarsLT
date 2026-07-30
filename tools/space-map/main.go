@@ -173,8 +173,16 @@ func project(points []geo.Point) []geo.XY {
 // runs to hours, so this is openly a loop rather than a clock.
 const umbraLoop = 14
 
-// addEclipse draws the next central solar eclipse: the shadow's band, the
-// centre line, and an umbra running along it.
+// eclipseLead is how long before an eclipse its path is worth drawing. Months
+// of notice is not news, and every other layer on the map is about today.
+const eclipseLead = 48 * time.Hour
+
+// tableStep is the spacing the paths are traced at, which is the only thing
+// that dates a point: the count of them is how long the shadow is on the Earth.
+const tableStep = 120 * time.Second
+
+// addEclipse draws the next central solar eclipse once it is near: the shadow's
+// band, the centre line, and, while it is happening, an umbra running along it.
 func addEclipse(sky *render.Sky, now time.Time) {
 	e, err := data.NextEclipse(now)
 	if err != nil {
@@ -182,18 +190,34 @@ func addEclipse(sky *render.Sky, now time.Time) {
 		return
 	}
 	when, _ := e.When()
+	if lead := when.Sub(now); lead > eclipseLead {
+		log.Printf("next eclipse is %s off, too far to draw", lead.Round(time.Hour))
+		return
+	}
 
-	centre := render.TrackD(e.Central)
+	lo, hi, ok := drawableRun(e)
+	if !ok {
+		log.Print("eclipse has no stretch this projection can draw")
+		return
+	}
+	centre := render.TrackD(e.Central[lo : hi+1])
 	if len(centre) == 0 {
 		log.Print("eclipse has no drawable centre line")
 		return
 	}
 
 	sky.Eclipse = &render.Eclipse{
-		Band:    render.PolygonPath(shadowBand(e)),
+		Band:    render.PolygonPath(shadowBand(e, lo, hi)),
 		Centre:  centre,
-		Umbra:   longest(centre),
 		Seconds: umbraLoop,
+	}
+
+	// The shadow only rides the path while it is actually on the Earth. Outside
+	// those couple of hours the line is a forecast, and nothing should move.
+	half := time.Duration(len(e.Central)-1) * tableStep / 2
+	if now.After(when.Add(-half)) && now.Before(when.Add(half)) {
+		sky.Eclipse.Umbra = longest(centre)
+		log.Printf("eclipse under way, greatest %s UT", e.Greatest)
 	}
 	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.EclipseColour, Label: "eclipse path"})
 	sky.Ticker = append(sky.Ticker, fmt.Sprintf("%s  ·  %s eclipse, greatest %s UT  ·  %s",
@@ -218,14 +242,15 @@ func longest(runs []string) string {
 // before the band is dropped, since near a pole this projection smears it.
 const maxLimitSpread = 25.0
 
-// shadowBand closes the two limits into the strip the shadow sweeps, over the
-// longest stretch where the projection still tells the truth about its width.
-func shadowBand(e *data.Eclipse) []geo.Point {
-	// The two limits are traced in step. If the table ever disagrees, band the
+// drawableRun is the longest stretch of the traced path this projection can
+// still tell the truth about. Towards a pole it smears the shadow sideways.
+func drawableRun(e *data.Eclipse) (int, int, bool) {
+	// The three paths are traced in step. If the table ever disagrees, use the
 	// stretch they share rather than letting one layer take the build down.
-	traced := min(len(e.North), len(e.South))
-	if traced != max(len(e.North), len(e.South)) {
-		log.Printf("eclipse %s has %d north and %d south points", e.Date, len(e.North), len(e.South))
+	traced := min(len(e.North), len(e.South), len(e.Central))
+	if traced != max(len(e.North), len(e.South), len(e.Central)) {
+		log.Printf("eclipse %s traces %d north, %d south, %d central points",
+			e.Date, len(e.North), len(e.South), len(e.Central))
 	}
 
 	best, current := [2]int{0, 0}, -1
@@ -243,10 +268,14 @@ func shadowBand(e *data.Eclipse) []geo.Point {
 		}
 	}
 	if best[1]-best[0] < 2 {
-		return nil
+		return 0, 0, false
 	}
+	return best[0], best[1], true
+}
 
-	north, south := e.North[best[0]:best[1]+1], e.South[best[0]:best[1]+1]
+// shadowBand closes the two limits into the strip the shadow sweeps.
+func shadowBand(e *data.Eclipse, lo, hi int) []geo.Point {
+	north, south := e.North[lo:hi+1], e.South[lo:hi+1]
 	band := make([]geo.Point, 0, len(north)+len(south))
 	band = append(band, north...)
 	for i := len(south) - 1; i >= 0; i-- {
