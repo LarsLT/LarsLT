@@ -65,6 +65,7 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 		{Colour: render.SunCore, Label: "daylight"},
 	}
 
+	addStation(ctx, client, &sky, now)
 	addEclipse(&sky, now)
 	addAurora(ctx, client, &sky, now)
 	addLaunches(ctx, client, &sky, now)
@@ -86,6 +87,71 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 // terminatorStepDeg is how finely the day/night boundary is traced. Two degrees
 // is under three pixels of spacing on a 1000px map.
 const terminatorStepDeg = 2.0
+
+// trackStep is how finely the ground track is sampled. Half a minute is about
+// four pixels of travel, so the curve stays smooth without bloating the file.
+const trackStep = 30 * time.Second
+
+// addStation draws the ISS ground track for an orbit either side of now, with
+// the station itself riding the leg it is on.
+func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, now time.Time) {
+	tle, err := sources.ISS(ctx, client, now)
+	if err != nil {
+		log.Printf("iss unavailable: %v", err)
+		return
+	}
+
+	points, times := tle.GroundTrack(now, tle.Period(), trackStep)
+	runs := trackRuns(points)
+
+	st := &render.Station{}
+	for _, run := range runs {
+		path := render.PathD(project(points[run[0]:run[1]+1]), false)
+		if path == "" {
+			continue
+		}
+		st.Track = append(st.Track, path)
+
+		// The leg holding the present moment is the one the station rides. The
+		// negative delay is what puts it at today's position on load.
+		if times[run[0]].After(now) || times[run[1]].Before(now) {
+			continue
+		}
+		span := times[run[1]].Sub(times[run[0]])
+		st.Leg = path
+		st.Seconds = int(span.Seconds())
+		st.Delay = render.PhaseDelay(span, times[run[0]], now)
+	}
+
+	sky.Station = st
+	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.ISS, Label: "ISS ground track"})
+
+	here := tle.SubPoint(now)
+	log.Printf("ISS at %.1fN %.1fE, elements %s old, %d track legs",
+		here.Lat, here.Lon, tle.Age(now).Round(time.Hour), len(st.Track))
+}
+
+// trackRuns splits a ground track wherever it leaves one edge of the map and
+// comes back on the other, returning inclusive index ranges.
+func trackRuns(points []geo.Point) [][2]int {
+	var runs [][2]int
+	start := 0
+	for i := 1; i < len(points); i++ {
+		if math.Abs(points[i].Lon-points[i-1].Lon) > 180 {
+			runs = append(runs, [2]int{start, i - 1})
+			start = i
+		}
+	}
+	return append(runs, [2]int{start, len(points) - 1})
+}
+
+func project(points []geo.Point) []geo.XY {
+	xy := make([]geo.XY, 0, len(points))
+	for _, p := range points {
+		xy = append(xy, geo.Project(p))
+	}
+	return xy
+}
 
 // umbraLoop is how long the shadow takes to cross the map. The real crossing
 // runs to hours, so this is openly a loop rather than a clock.

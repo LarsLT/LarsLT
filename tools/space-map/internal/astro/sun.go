@@ -22,10 +22,8 @@ func daysSinceJ2000(t time.Time) float64 {
 	return t.UTC().Sub(j2000).Seconds() / 86400
 }
 
-// SubsolarPoint returns the spot with the sun straight overhead.
-//
-// Low-precision NOAA series, good to about a hundredth of a degree, which is
-// far below one pixel on a 1000px wide world map.
+// SubsolarPoint returns the spot with the sun straight overhead. The NOAA
+// low-precision series, good to well under a pixel at this map's scale.
 func SubsolarPoint(t time.Time) geo.Point {
 	n := daysSinceJ2000(t)
 
@@ -42,13 +40,16 @@ func SubsolarPoint(t time.Time) geo.Point {
 		math.Cos(eclipticLon),
 	) * rad
 
-	// Greenwich mean sidereal time, as an angle.
-	gmst := 280.46061837 + 360.98564736629*n
-
 	return geo.Point{
-		Lon: geo.WrapLon(rightAsc - gmst),
+		Lon: geo.WrapLon(rightAsc - GreenwichAngle(t)),
 		Lat: declination,
 	}
+}
+
+// GreenwichAngle is Greenwich mean sidereal time as an angle in degrees, which
+// is how far the Earth has turned under the stars.
+func GreenwichAngle(t time.Time) float64 {
+	return 280.46061837 + 360.98564736629*daysSinceJ2000(t)
 }
 
 // TerminatorLatitude gives the latitude of the day/night boundary at one
@@ -66,12 +67,8 @@ func TerminatorLatitude(lon, subsolarLon, declination float64) float64 {
 	return math.Atan(-math.Cos(hourAngle)/math.Tan(declination*deg)) * rad
 }
 
-// NightPolygon traces the unlit half of the world.
-//
-// At any one longitude the sun's altitude is a single sine in latitude, so the
-// lit part always reaches one pole and the dark part always reaches the other.
-// That makes the night side one band: follow the terminator across the map,
-// then close along whichever pole edge is in darkness.
+// NightPolygon traces the unlit half of the world. Darkness always reaches one
+// pole, so it is a single band: the terminator, closed along that pole's edge.
 func NightPolygon(subsolar geo.Point, stepDeg float64) []geo.Point {
 	var pts []geo.Point
 	for lon := -180.0; lon <= 180.0+stepDeg/2; lon += stepDeg {

@@ -134,8 +134,8 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 - [x] M6. `cmd/buildeclipses`: parse the NASA `SEpath` tables for solar eclipses
       2026-2030 into `data/eclipses.json`, then the band and umbra layer. Eight central
       eclipses, 48 KB. The umbra rides a CSS `offset-path`, confirmed in Chromium.
-- [ ] M7. ISS: Celestrak TLE, SGP4, ground track for plus or minus one orbit, dot on a CSS
-      `offset-path`. `wheretheiss.at` as fallback for the instantaneous point.
+- [x] M7. ISS: Celestrak TLE, ground track for plus or minus one orbit, dot on a CSS
+      `offset-path`. No SGP4 and no `wheretheiss.at`, see Decisions.
 - [ ] M8. Meteor showers from the static table, streak layer.
 - [ ] M9. `space-map.yml`: `*/30 * * * *`, `workflow_dispatch`, push on main filtered to
       `tools/space-map/**`. Push `dist/` to a `space` branch, not `output`, see Decisions.
@@ -175,6 +175,13 @@ The last good Launch Library response is cached on the output branch as a 429 fa
   marker stays, it is the subsolar point rather than decoration.
 - Absolute launch times inside the SVG, relative ones only in README text. SVG cannot count
   down without JS, and a baked "T-3h" string is a lie forty minutes later.
+- Kepler with the J2 drift terms instead of SGP4, and no `wheretheiss.at` fallback.
+  Against a live position fix taken fourteen hours after the element epoch, the simple
+  propagator landed 10 km out, which is a quarter of a pixel here. A dependency and two
+  thousand lines of someone else's orbital mechanics buy nothing at this scale, and the
+  test that measured it is committed so the claim stays honest. The second source went
+  with it: a cached element set is good for days and already covers Celestrak being down,
+  which is more than a live point fix with no track would give.
 - Actions over a hosted renderer. A Cloudflare Worker rendering on request would be truly
   live, but it adds a deploy, a domain and a service to keep alive for a profile
   decoration. This matches the snake pattern and is free on public repos.

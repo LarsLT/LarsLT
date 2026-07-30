@@ -119,6 +119,37 @@ func eclipse(b *strings.Builder, e *Eclipse) {
 		EclipseColour, e.Centre, e.Seconds)
 }
 
+// Station is the ISS: its ground track, and the leg of that track the station
+// is riding right now.
+type Station struct {
+	Track   []string
+	Leg     string
+	Seconds int
+	Delay   float64
+}
+
+func station(b *strings.Builder, s *Station) {
+	if s == nil {
+		return
+	}
+	for _, run := range s.Track {
+		fmt.Fprintf(b,
+			`<path d="%s" fill="none" stroke="%s" stroke-width="1" opacity="0.4" stroke-dasharray="4 3"/>`,
+			run, ISS)
+	}
+	if s.Leg == "" {
+		return
+	}
+	fmt.Fprintf(b,
+		`<circle class="station" r="3.2" fill="%s" style="offset-path:path('%s');`+
+			`animation-duration:%ds;animation-delay:%ss"/>`,
+		ISS, s.Leg, s.Seconds, Num2(s.Delay))
+	fmt.Fprintf(b,
+		`<circle class="station" r="7" fill="%s" opacity="0.18" style="offset-path:path('%s');`+
+			`animation-duration:%ds;animation-delay:%ss"/>`,
+		ISS, s.Leg, s.Seconds, Num2(s.Delay))
+}
+
 // LaunchPad is a projected launch site. The soonest one gets the ring and the
 // only label, so a crowded coast stays readable.
 type LaunchPad struct {

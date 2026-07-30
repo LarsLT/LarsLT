@@ -21,6 +21,7 @@ type Sky struct {
 	Terminator *Terminator
 	Aurora     []Aurora
 	Eclipse    *Eclipse
+	Station    *Station
 	Launches   []LaunchPad
 	Legend     []LegendItem
 	Ticker     []string
@@ -65,6 +66,7 @@ func Document(sky Sky) string {
 	terminator(&b, sky.Terminator)
 	aurora(&b, sky.Aurora)
 	eclipse(&b, sky.Eclipse)
+	station(&b, sky.Station)
 	launchPads(&b, sky.Launches)
 	b.WriteString(`</g>`)
 
@@ -113,6 +115,11 @@ func writeStyle(b *strings.Builder) {
 		`animation-iteration-count:infinite}`+
 		`@keyframes umbra{0%%{offset-distance:0%%;opacity:0}10%%,90%%{opacity:.95}`+
 		`100%%{offset-distance:100%%;opacity:0}}`+
+		// The station rides its leg at the speed it actually flies, and the
+		// negative delay drops it where it is now rather than at the start.
+		`.station{offset-rotate:0deg;animation-name:ride;animation-timing-function:linear;`+
+		`animation-iteration-count:infinite}`+
+		`@keyframes ride{from{offset-distance:0%%}to{offset-distance:100%%}}`+
 		`</style>`,
 		FontSans, FontMono, int(SolarDay.Seconds()), Num(MapW))
 }
