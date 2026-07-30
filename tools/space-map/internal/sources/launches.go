@@ -18,6 +18,10 @@ const launchesURL = "https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=
 // LaunchWindow is how far ahead a launch still counts as upcoming.
 const LaunchWindow = 30 * 24 * time.Hour
 
+// launchMaxAge caps how long the cached feed may stand in for the live one. A
+// T-0 is a plan: after a day of outage too many of them have quietly slipped.
+const launchMaxAge = 24 * time.Hour
+
 // Launch is one upcoming flight, reduced to what the map draws.
 type Launch struct {
 	Name     string
@@ -36,9 +40,6 @@ type launchFeed struct {
 		Precision struct {
 			Abbrev string `json:"abbrev"`
 		} `json:"net_precision"`
-		Status struct {
-			Abbrev string `json:"abbrev"`
-		} `json:"status"`
 		Provider struct {
 			Abbrev string `json:"abbrev"`
 			Name   string `json:"name"`
@@ -57,14 +58,40 @@ type launchFeed struct {
 // Launches returns the flights lifting off between now and the window's end,
 // soonest first.
 func Launches(ctx context.Context, c *Client, now time.Time) ([]Launch, error) {
-	body, err := c.Fetch(ctx, launchesURL, "launches")
+	body, err := c.Fetch(ctx, Request{
+		URL:      launchesURL,
+		CacheKey: "launches",
+		MaxAge:   launchMaxAge,
+		Valid:    validLaunches,
+	})
 	if err != nil {
 		return nil, err
 	}
+	return parseLaunches(body, now)
+}
 
+func validLaunches(body []byte) error {
+	_, err := decodeLaunches(body)
+	return err
+}
+
+// decodeLaunches treats an empty result set as a refusal. The upcoming feed
+// always has hundreds of entries, so nothing at all is upstream saying no.
+func decodeLaunches(body []byte) (*launchFeed, error) {
 	var feed launchFeed
 	if err := json.Unmarshal(body, &feed); err != nil {
 		return nil, fmt.Errorf("parse launches: %w", err)
+	}
+	if len(feed.Results) == 0 {
+		return nil, fmt.Errorf("launch feed carried no results")
+	}
+	return &feed, nil
+}
+
+func parseLaunches(body []byte, now time.Time) ([]Launch, error) {
+	feed, err := decodeLaunches(body)
+	if err != nil {
+		return nil, err
 	}
 
 	cutoff := now.Add(LaunchWindow)
@@ -83,7 +110,7 @@ func Launches(ctx context.Context, c *Client, now time.Time) ([]Launch, error) {
 			Pad:      r.Pad.Name,
 			Site:     shortSite(r.Pad.Location.Name),
 			At:       at.UTC(),
-			Vague:    r.Precision.Abbrev != "MIN" && r.Precision.Abbrev != "HR",
+			Vague:    vagueT0(r.Precision.Abbrev),
 			Position: geo.Point{Lon: *r.Pad.Longitude, Lat: *r.Pad.Latitude},
 		})
 	}
@@ -92,29 +119,36 @@ func Launches(ctx context.Context, c *Client, now time.Time) ([]Launch, error) {
 	return out, nil
 }
 
+// vagueT0 says whether net_precision leaves the time of day unknown. The three
+// precise values are named, so anything new upstream invents counts as vague.
+func vagueT0(abbrev string) bool {
+	switch abbrev {
+	case "SEC", "MIN", "HR":
+		return false
+	}
+	return true
+}
+
 // Pad is a launch site with at least one flight in the window. Several launches
 // share a pad, and the map only needs the dot once.
 type Pad struct {
 	Position geo.Point
-	Site     string
 	Next     Launch
-	Count    int
 }
 
 // Pads groups launches by site, soonest first.
 func Pads(launches []Launch) []Pad {
 	var pads []Pad
-	index := map[string]int{}
+	seen := map[string]bool{}
 	for _, l := range launches {
 		// Neighbouring pads at one spaceport land on the same pixel, so the key
 		// is the rounded position rather than the pad name.
 		key := fmt.Sprintf("%.1f,%.1f", l.Position.Lat, l.Position.Lon)
-		if i, ok := index[key]; ok {
-			pads[i].Count++
+		if seen[key] {
 			continue
 		}
-		index[key] = len(pads)
-		pads = append(pads, Pad{Position: l.Position, Site: l.Site, Next: l, Count: 1})
+		seen[key] = true
+		pads = append(pads, Pad{Position: l.Position, Next: l})
 	}
 	return pads
 }

@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
@@ -66,7 +67,9 @@ func NextEclipse(now time.Time) (*Eclipse, error) {
 	for _, e := range eclipses {
 		when, err := e.When()
 		if err != nil {
-			return nil, fmt.Errorf("eclipse %s: %w", e.Date, err)
+			// One unreadable row is not worth the four years of good ones behind it.
+			log.Printf("skipping eclipse %s: %v", e.Date, err)
+			continue
 		}
 		// The path is drawn for the whole day it falls on, so an eclipse only
 		// drops off the map once that day is over.
