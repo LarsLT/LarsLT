@@ -1,2 +1,5 @@
 # Claude Code — track shared config, ignore personal/in-flight stuff
 .claude/settings.local.json
+
+# Generated SVGs are published to their own branch, never committed to main
+dist/
