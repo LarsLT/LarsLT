@@ -1,21 +1,19 @@
-// Package render turns the gathered sky data into an animated SVG.
-//
-// Everything is CSS-only. GitHub strips <script> and camo blocks external
-// references, so motion uses @keyframes and offset-path, never SMIL or JS.
+// Package render turns the gathered sky data into an animated SVG. Everything
+// is CSS-only: GitHub strips <script>, so motion is @keyframes and offset-path.
 package render
 
 import "github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
 
-// Canvas layout.
+// Canvas layout. No title bar: the picture says what it is, so the only chrome
+// is the legend and ticker below the map.
 const (
 	Width  = 1000.0
-	Height = 620.0
+	Height = MapH + FooterH
 
-	HeaderH = 44.0
 	MapW    = geo.MapW
 	MapH    = geo.MapH
-	MapY    = HeaderH
-	FooterY = MapY + MapH
+	FooterY = MapH
+	FooterH = 76.0
 
 	LegendY      = FooterY + 22
 	TickerY      = FooterY + 46
@@ -26,10 +24,11 @@ const (
 
 // Palette. The accent matches the blue already used across the profile README.
 const (
-	BgTop      = "#070b16"
 	BgBottom   = "#0d1426"
-	LandFill   = "#14243f"
-	LandStroke = "#2c4c7d"
+	Ocean      = "#0c1a30"
+	OceanPolar = "#091426"
+	LandFill   = "#1b3054"
+	LandStroke = "#3a628f"
 	Graticule  = "#1a2740"
 	Night      = "#00040d"
 	Accent     = "#58a6ff"
@@ -43,12 +42,9 @@ const (
 	Eclipse    = "#ffd166"
 	ISS        = "#7fd1ff"
 	Meteor     = "#cbb2ff"
-	Star       = "#dce6f5"
 	SunGlow    = "#ffd98a"
 	SunCore    = "#fff3c4"
 	FontSans   = "'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 	FontMono   = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
-	TitleText  = "WHAT THE SKY IS DOING RIGHT NOW"
-	StarCount  = 170
-	StarSeed   = 1969 // Apollo 11
+	TitleText  = "What the sky is doing right now"
 )

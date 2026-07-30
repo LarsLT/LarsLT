@@ -58,7 +58,8 @@ minutes, roughly 7.5 degrees of longitude. Invisible at this scale.
 
 ### Layers, back to front
 
-1. Background: deep navy gradient, ~140 seeded stars in 3 twinkle classes, staggered delays.
+1. Background: the ocean itself, a dark blue gradient that goes deeper towards the poles.
+   No starfield, see Decisions.
 2. Graticule every 30 degrees, very faint.
 3. Countries: Natural Earth 110m, pre-simplified into committed SVG path strings.
 4. Night side: terminator polygon from the subsolar point, drawn twice side by side in a
@@ -76,11 +77,11 @@ minutes, roughly 7.5 degrees of longitude. Invisible at this scale.
 8. Launch pads: a dot per pad with a launch in the next 30 days. The next launch gets a
    pulsing ring, a label, and a small trajectory arc.
 9. ISS: ground track polyline from the propagated TLE, plus a glowing dot riding it.
-10. Chrome: title, legend, bottom ticker with next 3 launches, next eclipse, Kp and aurora
-    reach, active shower, and "updated every 30 min".
+10. Chrome: legend and bottom ticker with next 3 launches, next eclipse, Kp and aurora
+    reach, and the active shower. No title bar and no timestamp, see Decisions.
 
-Canvas 1000x560. The map is a 1000x500 equirectangular projection,
-`x = (lon+180)/360*W`, `y = (90-lat)/180*H`, with header and legend bands around it.
+Canvas 1000x576. The map is a 1000x500 equirectangular projection running edge to edge,
+`x = (lon+180)/360*W`, `y = (90-lat)/180*H`, with a legend and ticker band under it.
 
 ### Files
 
@@ -156,6 +157,11 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 - Kp-derived oval as the primary aurora layer, OVATION as optional enrichment. Verified
   reachable beats prettier but blocked. The oval is also cleaner to draw than a 65k-point
   probability grid.
+- No title bar, no starfield, no "generated at" stamp. A map of the Earth needs no caption,
+  and stars behind a sea with no fill read as holes in the planet rather than as space. The
+  stamp had to go for a different reason: it looks like a clock but cannot tick, since CSS
+  cannot count. Everything that stays on the canvas is either the Earth or live. The sun
+  marker stays, it is the subsolar point rather than decoration.
 - Absolute launch times inside the SVG, relative ones only in README text. SVG cannot count
   down without JS, and a baked "T-3h" string is a lie forty minutes later.
 - Actions over a hosted renderer. A Cloudflare Worker rendering on request would be truly
