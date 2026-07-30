@@ -1,1 +1,2 @@
-.claude/
+# Claude Code — track shared config, ignore personal/in-flight stuff
+.claude/settings.local.json
