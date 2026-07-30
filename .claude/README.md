@@ -31,8 +31,8 @@ and enabled per-plugin in `settings.json::enabledPlugins`.
 | Provided by claude-kit | Stays in this repo |
 | --- | --- |
 | `core` skills: `stop-slop`, `grill-me`, `ponytail`, `karpathy-guidelines` | `rules/` — this repo's hard rules |
-| `python` skill: `comment-style` | `docs/` — this repo's rendering knowledge |
-| `python` hooks: `format-python`, `comment-lint` (for generator tooling) | `dev/` — this repo's plans |
+| `go` skill: `comment-style` | `docs/` — this repo's rendering knowledge |
+| `go` hooks: `format-go`, `comment-lint` (for generator tooling) | `dev/` — this repo's plans |
 
 Change a shared file in `claude-kit`, then run `/plugin` here to pick it up. Don't copy
 shared files back into this repo — that's the drift this setup exists to stop.

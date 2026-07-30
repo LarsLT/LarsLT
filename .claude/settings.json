@@ -13,8 +13,8 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
-      "Bash(python:*)",
-      "Bash(python3:*)"
+      "Bash(go:*)",
+      "Bash(gofmt:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
@@ -38,6 +38,6 @@
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "core@claude-kit": true,
-    "python@claude-kit": true
+    "go@claude-kit": true
   }
 }

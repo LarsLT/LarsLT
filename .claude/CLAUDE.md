@@ -19,8 +19,8 @@ definition of done.
 - **`.gitignore`** — tracks the shared `.claude/` config, ignores `.claude/settings.local.json`.
 
 Generator tooling (like the planned space-map, see `.claude/dev/proposed/space-map/`) is
-small **Python** run by Actions on a cron, writing an SVG to its own branch. That's the
-only code this repo grows — Python + Markdown/SVG, no compiled languages.
+a small **Go** program run by Actions on a cron, writing an SVG to its own branch. That's
+the only code this repo grows — Go + Markdown/SVG.
 
 ## How GitHub renders this page (the constraints that matter)
 
@@ -82,5 +82,5 @@ only code this repo grows — Python + Markdown/SVG, no compiled languages.
 
 Skills and hooks come from the private `LarsLT/claude-kit` marketplace, declared in
 `settings.json`. Enabled here: `core` (language-agnostic writing/planning skills) and
-`python` (ruff format + comment-lint hooks, for the generator tooling). Change a shared
+`go` (gofmt/goimports + comment-lint hooks, for the generator tooling). Change a shared
 file in `claude-kit`, then run `/plugin` to pick it up — don't copy it back into this repo.
