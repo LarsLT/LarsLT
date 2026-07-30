@@ -56,6 +56,35 @@ func TestSubsolarPointKnownValues(t *testing.T) {
 	}
 }
 
+// Two positions worked out from Meeus' apparent solar coordinates. The noon
+// test below would wave a degree of sidereal-time error through; this will not.
+func TestSubsolarLongitudeAgainstReference(t *testing.T) {
+	for _, c := range []struct {
+		when     time.Time
+		lat, lon float64
+	}{
+		{time.Date(2026, 7, 30, 17, 9, 0, 0, time.UTC), 18.379, -75.634},
+		{time.Date(2026, 6, 21, 8, 25, 0, 0, time.UTC), 23.438, 54.199},
+	} {
+		got := SubsolarPoint(c.when)
+		if math.Abs(got.Lat-c.lat) > 0.005 {
+			t.Errorf("%s: declination %.4f, want %.3f", c.when.Format(time.RFC3339), got.Lat, c.lat)
+		}
+		if off := geo.WrapLon(got.Lon - c.lon); math.Abs(off) > 0.005 {
+			t.Errorf("%s: subsolar longitude %.4f, want %.3f", c.when.Format(time.RFC3339), got.Lon, c.lon)
+		}
+	}
+}
+
+// Everything the sun and the ground track do hangs off this one constant: how
+// far the Earth had already turned under the stars at J2000.
+func TestGreenwichAngleAtJ2000(t *testing.T) {
+	got := GreenwichAngle(time.Date(2000, 1, 1, 12, 0, 0, 0, time.UTC))
+	if math.Abs(got-280.460618) > 1e-6 {
+		t.Errorf("GMST at J2000 = %.9f, want 280.460618", got)
+	}
+}
+
 // At 12:00 UTC the sun stands over the Greenwich meridian, off only by the
 // equation of time, which never exceeds about 16 minutes, or 4 degrees.
 func TestSubsolarPointNoonLongitude(t *testing.T) {
