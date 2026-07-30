@@ -97,8 +97,8 @@ const terminatorStepDeg = 2.0
 // four pixels of travel, so the curve stays smooth without bloating the file.
 const trackStep = 30 * time.Second
 
-// addStation draws the ISS ground track for an orbit either side of now, with
-// the station itself riding the leg it is on.
+// addStation draws half an orbit of ground track either side of now, with the
+// station riding the leg it is on. A whole orbit each way reads as clutter.
 func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, now time.Time) {
 	tle, err := sources.ISS(ctx, client, now)
 	if err != nil {
@@ -106,7 +106,7 @@ func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, no
 		return
 	}
 
-	points, times := tle.GroundTrack(now, tle.Period(), trackStep)
+	points, times := tle.GroundTrack(now, tle.Period()/2, trackStep)
 	runs := trackRuns(points)
 
 	st := &render.Station{}
