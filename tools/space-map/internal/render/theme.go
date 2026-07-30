@@ -44,6 +44,8 @@ const (
 	ISS        = "#7fd1ff"
 	Meteor     = "#cbb2ff"
 	Star       = "#dce6f5"
+	SunGlow    = "#ffd98a"
+	SunCore    = "#fff3c4"
 	FontSans   = "'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 	FontMono   = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
 	TitleText  = "WHAT THE SKY IS DOING RIGHT NOW"

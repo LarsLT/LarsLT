@@ -12,6 +12,43 @@ type LegendItem struct {
 	Label  string
 }
 
+// Terminator is the unlit half of the world, already projected. The shape is
+// baked at the current sun position and then simply slides west, which is
+// exactly what the real one does.
+type Terminator struct {
+	NightPath string
+	SunX      float64
+	SunY      float64
+}
+
+// terminator draws the night side twice, side by side, so that sliding the
+// group one full map width west loops without a seam.
+func terminator(b *strings.Builder, term *Terminator) {
+	if term == nil || term.NightPath == "" {
+		return
+	}
+	b.WriteString(`<g class="night">`)
+	for _, shift := range []float64{0, MapW} {
+		fmt.Fprintf(b, `<g transform="translate(%s,0)">`, Num(shift))
+		fmt.Fprintf(b, `<path d="%s" fill="%s" opacity="0.55"/>`, term.NightPath, Night)
+		fmt.Fprintf(b,
+			`<path d="%s" fill="none" stroke="%s" stroke-width="0.8" opacity="0.35"/>`,
+			term.NightPath, Accent)
+		sun(b, term.SunX, term.SunY)
+		b.WriteString(`</g>`)
+	}
+	b.WriteString(`</g>`)
+}
+
+// sun marks the spot with the sun straight overhead.
+func sun(b *strings.Builder, x, y float64) {
+	fmt.Fprintf(b, `<circle cx="%s" cy="%s" r="9" fill="%s" opacity="0.10"/>`,
+		Num(x), Num(y), SunGlow)
+	fmt.Fprintf(b, `<circle cx="%s" cy="%s" r="4.5" fill="%s" opacity="0.22"/>`,
+		Num(x), Num(y), SunGlow)
+	fmt.Fprintf(b, `<circle cx="%s" cy="%s" r="2.2" fill="%s"/>`, Num(x), Num(y), SunCore)
+}
+
 func background(b *strings.Builder) {
 	fmt.Fprintf(b, `<rect width="%s" height="%s" fill="url(#sky)"/>`, Num(Width), Num(Height))
 }

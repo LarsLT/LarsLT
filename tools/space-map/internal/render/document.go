@@ -16,10 +16,24 @@ func latY(lat float64) float64 { return geo.Y(lat) }
 // Sky is everything the renderer needs. Any field may be empty: a source that
 // failed simply drops its layer rather than failing the build.
 type Sky struct {
-	Generated time.Time
-	LandPath  string
-	Legend    []LegendItem
-	Ticker    []string
+	Generated  time.Time
+	LandPath   string
+	Terminator *Terminator
+	Legend     []LegendItem
+	Ticker     []string
+}
+
+// PolygonPath projects a lon/lat ring into map space, optionally shifted a
+// whole turn of the globe so a copy can sit alongside the original.
+func PolygonPath(pts []geo.Point, lonShift float64) string {
+	if len(pts) == 0 {
+		return ""
+	}
+	xy := make([]geo.XY, 0, len(pts))
+	for _, p := range pts {
+		xy = append(xy, geo.Project(geo.Point{Lon: p.Lon + lonShift, Lat: p.Lat}))
+	}
+	return PathD(xy, true)
 }
 
 // Document renders the whole SVG.
@@ -46,6 +60,7 @@ func Document(sky Sky) string {
 	if sky.LandPath != "" {
 		land(&b, sky.LandPath)
 	}
+	terminator(&b, sky.Terminator)
 	b.WriteString(`</g>`)
 
 	header(&b, sky.Generated.UTC().Format("2006-01-02 15:04 UTC"))
@@ -79,6 +94,9 @@ func writeStyle(b *strings.Builder) {
 		`@keyframes twinkle1{0%%,100%%{opacity:.9}50%%{opacity:.35}}`+
 		`@keyframes twinkle2{0%%,100%%{opacity:.6}50%%{opacity:.22}}`+
 		`@keyframes twinkle3{0%%,100%%{opacity:.34}50%%{opacity:.12}}`+
+		// One full turn of the Earth, at the speed the Earth actually turns.
+		`.night{animation:sweep %ds linear infinite}`+
+		`@keyframes sweep{from{transform:translateX(0)}to{transform:translateX(-%spx)}}`+
 		`</style>`,
-		FontSans, FontMono)
+		FontSans, FontMono, int(SolarDay.Seconds()), Num(MapW))
 }
