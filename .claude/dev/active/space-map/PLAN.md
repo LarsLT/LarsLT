@@ -87,20 +87,22 @@ Canvas 1000x560. The map is a 1000x500 equirectangular projection,
 ```
 .github/workflows/space-map.yml
 tools/space-map/
-├── build.py                 # fetch, model, render, write dist/space-map.svg
-├── sources/{launches,aurora,iss,eclipses,showers}.py
-├── render/{projection,theme,layers,svg}.py
+├── main.go                  # fetch, model, render, write dist/space-map.svg
+├── internal/sources/        # launches, aurora, iss, eclipses, showers
+├── internal/astro/          # sun position, terminator, auroral oval
+├── internal/geo/            # equirectangular projection, antimeridian split
+├── internal/render/         # theme, layers, svg, clock
 ├── data/                    # committed, generated once, never fetched at runtime
 │   ├── basemap.json         # country path strings
 │   ├── eclipses.json        # solar eclipse paths 2026-2030
 │   └── meteor_showers.json  # IMO peak dates, radiants, ZHR
-├── scripts/{build_basemap,build_eclipses}.py   # one-off generators
-└── requirements.txt         # requests, sgp4
+└── cmd/{buildbasemap,buildeclipses}/  # one-off generators
 ```
 
-Runtime dependencies stay at two, `requests` and `sgp4`. The projection is four lines of
-arithmetic and the SVG is plain string templating. No d3, no headless browser, no geo
-stack. Those live only in the one-off `scripts/` that produce the committed JSON.
+Go, standard library only, plus SGP4 for the ISS at M7. The committed JSON is embedded
+with `go:embed`, so a build needs no files beside the binary. The projection is four lines
+of arithmetic and the SVG is plain string templating. No d3, no headless browser, no geo
+stack.
 
 ### Degradation
 
@@ -111,22 +113,23 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 
 ## Steps
 
-- [ ] M0. This file, committed.
-- [ ] M1. `scripts/build_basemap.py`: Natural Earth 110m, Douglas-Peucker at ~0.35 degrees,
+- [x] M0. This file, committed.
+- [x] M1. `cmd/buildbasemap`: Natural Earth 110m, Douglas-Peucker at ~0.35 degrees,
       coordinates rounded to 1 decimal, antimeridian split, out to `data/basemap.json`.
       Target 80 KB or under.
-- [ ] M2. `build.py` skeleton plus `render/` producing a static SVG: starfield, graticule,
+- [x] M2. `main.go` skeleton plus `internal/render/` producing a static SVG: starfield, graticule,
       countries, header, legend. Open it in a browser. This is the "does it look good" gate,
       fix the palette here rather than later.
-- [ ] M3. Terminator layer and the baked-clock helper `phase_delay(period, epoch)`, reused
-      by every later animation.
+- [x] M3. Terminator layer and the baked-clock helper `render.PhaseDelay`, reused by every
+      later animation. `internal/astro` is covered by tests: the polygon is checked against
+      solar elevation over a year of samples, and `-at` renders any instant for eyeballing.
 - [ ] M4. Launches: Launch Library 2.3.0, next 30 days, pad dots, next-launch ring and
       label, ticker lines. Cache the last good response.
 - [ ] M5. Aurora: GFZ Kp, oval geometry, visibility sentence. Probe SWPC OVATION from the
       runner in the same job and log the status code, then decide on the enrichment layer.
-- [ ] M6. `scripts/build_eclipses.py`: parse the NASA `SEpath` tables for solar eclipses
+- [ ] M6. `cmd/buildeclipses`: parse the NASA `SEpath` tables for solar eclipses
       2026-2030 into `data/eclipses.json`, then the band and umbra layer.
-- [ ] M7. ISS: Celestrak TLE, `sgp4`, ground track for plus or minus one orbit, dot on a CSS
+- [ ] M7. ISS: Celestrak TLE, SGP4, ground track for plus or minus one orbit, dot on a CSS
       `offset-path`. `wheretheiss.at` as fallback for the instantaneous point.
 - [ ] M8. Meteor showers from the static table, streak layer.
 - [ ] M9. `space-map.yml`: `*/30 * * * *`, `workflow_dispatch`, push on main filtered to
@@ -163,10 +166,13 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 
 ```bash
 # local build, then look at it
-python tools/space-map/build.py --out dist && xdg-open dist/space-map.svg
+cd tools/space-map && go run . -out dist && xdg-open dist/space-map.svg
+
+# the sky geometry, and any instant on demand
+go test ./... && go run . -out dist -at 2026-07-30T00:00:00Z
 
 # every source down, must still emit a valid SVG
-python tools/space-map/build.py --out dist --offline
+go run . -out dist -offline
 
 # no scripts, no external references, camo blocks them and GitHub strips them
 grep -c '<script' dist/space-map.svg          # expect 0
