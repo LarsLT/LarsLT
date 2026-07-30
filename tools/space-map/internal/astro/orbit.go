@@ -20,14 +20,15 @@ const (
 
 // TLE is a two-line element set, reduced to the orbit it describes.
 type TLE struct {
-	Name         string
-	Epoch        time.Time
-	Inclination  float64 // radians
-	RAAN         float64 // radians, at epoch
-	Eccentricity float64
-	ArgPerigee   float64 // radians, at epoch
-	MeanAnomaly  float64 // radians, at epoch
-	MeanMotion   float64 // radians per second
+	Name          string
+	Epoch         time.Time
+	Inclination   float64 // radians
+	RAAN          float64 // radians, at epoch
+	Eccentricity  float64
+	ArgPerigee    float64 // radians, at epoch
+	MeanAnomaly   float64 // radians, at epoch
+	MeanMotion    float64 // radians per second
+	MeanMotionDot float64 // drag, radians per second squared
 
 	semiMajor   float64
 	raanRate    float64 // radians per second
@@ -83,10 +84,21 @@ func ParseTLE(text string) (*TLE, error) {
 	t.Eccentricity = ecc
 
 	revsPerDay, err := strconv.ParseFloat(strings.TrimSpace(line2[52:63]), 64)
-	if err != nil || revsPerDay <= 0 {
+	if err != nil {
 		return nil, fmt.Errorf("parse mean motion: %w", err)
 	}
+	if revsPerDay <= 0 {
+		return nil, fmt.Errorf("mean motion %g is not positive", revsPerDay)
+	}
 	t.MeanMotion = revsPerDay * 2 * math.Pi / 86400
+
+	// Drag, written as half the first derivative of mean motion. Dropping it
+	// leaves a week-old element set a couple of hundred kilometres behind.
+	nDot, err := strconv.ParseFloat(strings.TrimSpace(line1[33:43]), 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse mean motion rate: %w", err)
+	}
+	t.MeanMotionDot = nDot * 2 * math.Pi / (86400 * 86400)
 
 	t.derive()
 	return t, nil
@@ -131,11 +143,11 @@ func (t *TLE) Period() time.Duration {
 func (t *TLE) Age(now time.Time) time.Duration { return now.Sub(t.Epoch) }
 
 // SubPoint is the spot on the ground the satellite is directly above. Kepler
-// plus the J2 drift terms, ten kilometres off a live fix half a day past epoch.
+// plus J2 and drag, twenty kilometres off a live fix half a day past epoch.
 func (t *TLE) SubPoint(at time.Time) geo.Point {
 	dt := at.Sub(t.Epoch).Seconds()
 
-	meanAnomaly := t.MeanAnomaly + t.MeanMotion*dt
+	meanAnomaly := t.MeanAnomaly + t.MeanMotion*dt + t.MeanMotionDot*dt*dt
 	eccentric := solveKepler(meanAnomaly, t.Eccentricity)
 	trueAnomaly := 2 * math.Atan2(
 		math.Sqrt(1+t.Eccentricity)*math.Sin(eccentric/2),

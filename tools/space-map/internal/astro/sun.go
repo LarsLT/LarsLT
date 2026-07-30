@@ -59,9 +59,6 @@ func TerminatorLatitude(lon, subsolarLon, declination float64) float64 {
 	// vertical, so hold it just off zero to keep the tangent finite.
 	if math.Abs(declination) < 0.3 {
 		declination = math.Copysign(0.3, declination)
-		if declination == 0 {
-			declination = 0.3
-		}
 	}
 	hourAngle := (lon - subsolarLon) * deg
 	return math.Atan(-math.Cos(hourAngle)/math.Tan(declination*deg)) * rad

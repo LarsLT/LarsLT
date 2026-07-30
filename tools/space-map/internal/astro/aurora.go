@@ -63,7 +63,7 @@ func Oval(kp float64, north bool, stepDeg float64) []geo.Point {
 }
 
 // smallCircleLat is where the circle of constant geomagnetic latitude crosses
-// one meridian: one sinusoid in lat, with a single root once the pole is inside.
+// one meridian: one sinusoid in lat, single-rooted while magneticLat < pole.Lat.
 func smallCircleLat(pole geo.Point, magneticLat, lon float64) float64 {
 	radius := (90 - math.Abs(magneticLat)) * deg
 
@@ -72,7 +72,12 @@ func smallCircleLat(pole geo.Point, magneticLat, lon float64) float64 {
 	amplitude := math.Hypot(a, b)
 	phase := math.Atan2(b, a)
 
-	ratio := math.Min(1, math.Max(-1, math.Cos(radius)/amplitude))
+	// Past that precondition some meridians miss the circle entirely. Clamping
+	// the ratio would answer them with a latitude nowhere near it.
+	ratio := math.Cos(radius) / amplitude
+	if math.Abs(ratio) > 1 {
+		return math.Copysign(90, pole.Lat)
+	}
 	principal := math.Asin(ratio)
 
 	// The sinusoid has two roots. Only one is a real latitude when the circle
