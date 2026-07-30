@@ -139,9 +139,12 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 - [x] M8. Meteor showers from the static table, streak layer. The table is a Go slice in
       `data/showers.go` rather than `meteor_showers.json`: nothing generates it, so a file
       to unmarshal would only add a decode step and a way to get the shape wrong.
-- [ ] M9. `space-map.yml`: `*/30 * * * *`, `workflow_dispatch`, push on main filtered to
-      `tools/space-map/**`. Push `dist/` to a `space` branch, not `output`, see Decisions.
-      Verify degradation with `--offline` and with a forced 429.
+- [x] M9. `space-map.yml`: `*/30 * * * *`, `workflow_dispatch`, push on main filtered to
+      `tools/space-map/**`. Pushes `dist/` to the `space` branch. The upstream cache rides
+      `actions/cache` on a rolling key rather than the published branch, so the branch
+      holds nothing but the SVG. The camo checks run in the job, and all three degradation
+      paths were exercised locally. The SWPC probe logs its status code and cannot fail
+      the run.  **Still unrun on a real runner: needs a `workflow_dispatch` after push.**
 - [ ] M10. README: new section above the snake, embedding
       `raw.githubusercontent.com/LarsLT/LarsLT/space/space-map.svg`, plus the static space
       paragraph. Claude drafts 3-5 lines, Lars rewrites them in his own voice.

@@ -1,0 +1,81 @@
+name: Generate space map
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/space-map/**"
+      - ".github/workflows/space-map.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: space-map
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/space-map
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # No dependencies, so nothing to cache and no go.sum to key it on.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/space-map/go.mod
+          cache: false
+
+      # The last good response from each upstream, so a rate-limited run still
+      # draws every layer. Rolling key: each run restores the previous one.
+      - name: Restore upstream cache
+        uses: actions/cache@v4
+        with:
+          path: tools/space-map/cache
+          key: space-map-sources-${{ github.run_id }}
+          restore-keys: space-map-sources-
+
+      - name: Test
+        run: go test ./...
+
+      # NOAA blocks the dev machine outright. If a runner gets through, the real
+      # OVATION grid becomes an option on top of the Kp-derived oval.
+      - name: Probe SWPC OVATION
+        continue-on-error: true
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
+            https://services.swpc.noaa.gov/json/ovation_aurora_latest.json || echo failed)
+          echo "SWPC OVATION responded $code"
+
+      - name: Build the map
+        run: go run . -out dist -cache cache
+
+      # Camo blocks external fetches and GitHub strips scripts, so either one in
+      # the output means a broken image on the profile.
+      - name: Check nothing GitHub strips crept in
+        run: |
+          ! grep -q '<script' dist/space-map.svg
+          if grep -oE 'https?://[^"]+' dist/space-map.svg |
+             grep -v '^http://www\.w3\.org/2000/svg$'; then
+            echo "external reference in the SVG"
+            exit 1
+          fi
+          python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('dist/space-map.svg')"
+          du -h dist/space-map.svg
+
+      - name: Push the SVG to the space branch
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: space
+          build_dir: tools/space-map/dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
