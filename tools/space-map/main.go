@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -14,12 +15,14 @@ import (
 	"github.com/LarsLT/LarsLT/tools/space-map/internal/astro"
 	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
 	"github.com/LarsLT/LarsLT/tools/space-map/internal/render"
+	"github.com/LarsLT/LarsLT/tools/space-map/internal/sources"
 )
 
 func main() {
 	out := flag.String("out", "dist", "directory to write space-map.svg into")
 	offline := flag.Bool("offline", false, "force every network source to fail, for testing degradation")
 	at := flag.String("at", "", "render the sky at an RFC3339 instant instead of now, for eyeballing other times of day")
+	cache := flag.String("cache", "cache", "directory holding the last good response from each source")
 	flag.Parse()
 
 	log.SetFlags(0)
@@ -34,12 +37,12 @@ func main() {
 		now = parsed.UTC()
 	}
 
-	if err := run(*out, *offline, now); err != nil {
+	if err := run(*out, *cache, *offline, now); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(outDir string, offline bool, now time.Time) error {
+func run(outDir, cacheDir string, offline bool, now time.Time) error {
 	sky := render.Sky{Generated: now}
 
 	// The basemap is embedded, so this only fails if the binary is broken.
@@ -52,14 +55,16 @@ func run(outDir string, offline bool, now time.Time) error {
 	if offline {
 		log.Print("offline mode, no sources fetched")
 	}
+	client := sources.New(cacheDir, offline)
+	ctx := context.Background()
 
 	// The sun needs no network, so this layer is always present.
 	sky.Terminator = buildTerminator(sky.Generated)
-
 	sky.Legend = []render.LegendItem{
 		{Colour: render.SunCore, Label: "daylight"},
 	}
-	sky.Ticker = []string{}
+
+	addLaunches(ctx, client, &sky, now)
 
 	svg := render.Document(sky)
 
@@ -78,6 +83,65 @@ func run(outDir string, offline bool, now time.Time) error {
 // terminatorStepDeg is how finely the day/night boundary is traced. Two degrees
 // is under three pixels of spacing on a 1000px map.
 const terminatorStepDeg = 2.0
+
+// addLaunches puts a dot on every pad flying in the next 30 days, rings the
+// soonest one, and lists the next few under the map.
+func addLaunches(ctx context.Context, client *sources.Client, sky *render.Sky, now time.Time) {
+	launches, err := sources.Launches(ctx, client, now)
+	if err != nil {
+		log.Printf("launches unavailable: %v", err)
+		return
+	}
+	if len(launches) == 0 {
+		log.Print("no launches in the window")
+		return
+	}
+
+	// Launches come sorted, and Pads keeps that order, so the first pad is the
+	// one flying next.
+	pads := sources.Pads(launches)
+	for i, pad := range pads {
+		xy := geo.Project(pad.Position)
+		label := ""
+		if i == 0 {
+			label = launchLabel(pad.Next)
+		}
+		sky.Launches = append(sky.Launches, render.LaunchPad{
+			X: xy.X, Y: xy.Y, Label: label, Next: i == 0,
+		})
+	}
+
+	for _, l := range launches[:min(len(launches), tickerLaunches)] {
+		sky.Ticker = append(sky.Ticker, tickerLine(l))
+	}
+	sky.Legend = append(sky.Legend,
+		render.LegendItem{Colour: render.LaunchNext, Label: "next launch"},
+		render.LegendItem{Colour: render.Launch, Label: "pad flying within 30 days"},
+	)
+
+	log.Printf("%d launches from %d pads, next %s", len(launches), len(pads), launches[0].At.Format(time.RFC3339))
+}
+
+// tickerLaunches is how many flights fit under the map without crowding it.
+const tickerLaunches = 2
+
+func launchLabel(l sources.Launch) string {
+	return fmt.Sprintf("%s  %s", l.At.Format("02 Jan 15:04Z"), l.Name)
+}
+
+// tickerLine spells the T-0 out in full. A countdown would be a lie the moment
+// the file is cached, so the SVG only ever states absolute times.
+func tickerLine(l sources.Launch) string {
+	when := l.At.Format("02 Jan 15:04Z")
+	if l.Vague {
+		when = l.At.Format("02 Jan") + " (TBD)"
+	}
+	site := l.Site
+	if site != "" {
+		site = "  ·  " + site
+	}
+	return fmt.Sprintf("%s  %s%s", when, l.Name, site)
+}
 
 func buildTerminator(now time.Time) *render.Terminator {
 	subsolar := astro.SubsolarPoint(now)

@@ -77,6 +77,49 @@ func graticule(b *strings.Builder) {
 		eq, Num(MapW), eq, Graticule)
 }
 
+// LaunchPad is a projected launch site. The soonest one gets the ring and the
+// only label, so a crowded coast stays readable.
+type LaunchPad struct {
+	X, Y  float64
+	Label string
+	Next  bool
+}
+
+func launchPads(b *strings.Builder, pads []LaunchPad) {
+	for _, p := range pads {
+		if p.Next {
+			continue
+		}
+		fmt.Fprintf(b, `<circle cx="%s" cy="%s" r="2.6" fill="%s" opacity="0.85"/>`,
+			Num(p.X), Num(p.Y), Launch)
+	}
+	for _, p := range pads {
+		if p.Next {
+			nextLaunch(b, p)
+		}
+	}
+}
+
+// nextLaunch is the one pad worth looking at: a ring expanding out of it, and a
+// label placed inboard so it never runs off the edge of the map.
+func nextLaunch(b *strings.Builder, p LaunchPad) {
+	fmt.Fprintf(b, `<g transform="translate(%s,%s)">`, Num(p.X), Num(p.Y))
+	fmt.Fprintf(b, `<circle class="ping" r="4" fill="none" stroke="%s" stroke-width="1.4"/>`, LaunchNext)
+	fmt.Fprintf(b, `<circle r="3.4" fill="%s"/>`, LaunchNext)
+	b.WriteString(`</g>`)
+
+	if p.Label == "" {
+		return
+	}
+	anchor, dx := "start", 9.0
+	if p.X > MapW*0.72 {
+		anchor, dx = "end", -9.0
+	}
+	fmt.Fprintf(b,
+		`<text x="%s" y="%s" fill="%s" font-size="11.5" text-anchor="%s">%s</text>`,
+		Num(p.X+dx), Num(p.Y+4), LaunchNext, anchor, Esc(p.Label))
+}
+
 func land(b *strings.Builder, path string) {
 	fmt.Fprintf(b,
 		`<path d="%s" fill="%s" stroke="%s" stroke-width="0.6" stroke-linejoin="round" fill-rule="evenodd"/>`,

@@ -124,8 +124,10 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 - [x] M3. Terminator layer and the baked-clock helper `render.PhaseDelay`, reused by every
       later animation. `internal/astro` is covered by tests: the polygon is checked against
       solar elevation over a year of samples, and `-at` renders any instant for eyeballing.
-- [ ] M4. Launches: Launch Library 2.3.0, next 30 days, pad dots, next-launch ring and
-      label, ticker lines. Cache the last good response.
+- [x] M4. Launches: Launch Library 2.3.0, next 30 days, pad dots, next-launch ring and
+      label, ticker lines. Cached under `-cache`, and all three degradation paths are
+      verified: live, cache fallback on a dead network, and the layer dropping with no
+      cache at all.
 - [ ] M5. Aurora: GFZ Kp, oval geometry, visibility sentence. Probe SWPC OVATION from the
       runner in the same job and log the status code, then decide on the enrichment layer.
 - [ ] M6. `cmd/buildeclipses`: parse the NASA `SEpath` tables for solar eclipses

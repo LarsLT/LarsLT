@@ -19,6 +19,7 @@ type Sky struct {
 	Generated  time.Time
 	LandPath   string
 	Terminator *Terminator
+	Launches   []LaunchPad
 	Legend     []LegendItem
 	Ticker     []string
 }
@@ -60,6 +61,7 @@ func Document(sky Sky) string {
 		land(&b, sky.LandPath)
 	}
 	terminator(&b, sky.Terminator)
+	launchPads(&b, sky.Launches)
 	b.WriteString(`</g>`)
 
 	legend(&b, sky.Legend)
@@ -89,6 +91,8 @@ func writeStyle(b *strings.Builder) {
 		// One full turn of the Earth, at the speed the Earth actually turns.
 		`.night{animation:sweep %ds linear infinite}`+
 		`@keyframes sweep{from{transform:translateX(0)}to{transform:translateX(-%spx)}}`+
+		`.ping{animation:ping 2.6s ease-out infinite}`+
+		`@keyframes ping{from{transform:scale(.5);opacity:.9}to{transform:scale(3.6);opacity:0}}`+
 		`</style>`,
 		FontSans, FontMono, int(SolarDay.Seconds()), Num(MapW))
 }

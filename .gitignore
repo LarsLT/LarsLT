@@ -3,3 +3,6 @@
 
 # Generated SVGs are published to their own branch, never committed to main
 dist/
+
+# Last good upstream responses, kept only so a rate-limited run still draws
+cache/
