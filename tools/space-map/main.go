@@ -44,6 +44,10 @@ func main() {
 	}
 }
 
+// runBudget bounds every fetch put together. The workflow gives the job ten
+// minutes, and a hung source must still leave time to draw the rest of the map.
+const runBudget = 4 * time.Minute
+
 func run(outDir, cacheDir string, offline bool, now time.Time) error {
 	sky := render.Sky{Generated: now}
 
@@ -58,7 +62,8 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 		log.Print("offline mode, no sources fetched")
 	}
 	client := sources.New(cacheDir, offline)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), runBudget)
+	defer cancel()
 
 	// The sun needs no network, so this layer is always present.
 	sky.Terminator = buildTerminator(sky.Generated)
@@ -163,6 +168,7 @@ func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, no
 	runs := trackRuns(points)
 
 	st := &render.Station{}
+	var leg [2]int
 	for _, run := range runs {
 		path := render.PathD(project(points[run[0]:run[1]+1]), false)
 		if path == "" {
@@ -170,15 +176,24 @@ func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, no
 		}
 		st.Track = append(st.Track, path)
 
-		// The leg holding the present moment is the one the station rides. The
-		// negative delay is what puts it at today's position on load.
-		if times[run[0]].After(now) || times[run[1]].Before(now) {
-			continue
+		// The first leg not already behind us is the one the station is on, or,
+		// in the step of time a split drops, the one it is a moment from joining.
+		if st.Leg == "" && !times[run[1]].Before(now) {
+			leg, st.Leg = run, path
 		}
-		span := times[run[1]].Sub(times[run[0]])
-		st.Leg = path
+	}
+	if st.Leg != "" {
+		// The negative delay is what puts the station at today's position on load.
+		span := times[leg[1]].Sub(times[leg[0]])
 		st.Seconds = int(span.Seconds())
-		st.Delay = render.PhaseDelay(span, times[run[0]], now)
+		st.Delay = render.PhaseDelay(span, times[leg[0]], now)
+
+		// A leg still ahead of now would wrap the phase round to its far end, and
+		// its start is where the station crosses the edge of the map anyway.
+		if gap := times[leg[0]].Sub(now); gap > 0 {
+			log.Printf("now falls %s short of the leg it rides, starting it from the edge", gap.Round(time.Second))
+			st.Delay = 0
+		}
 	}
 
 	sky.Station = st
@@ -250,8 +265,15 @@ const maxLimitSpread = 25.0
 // shadowBand closes the two limits into the strip the shadow sweeps, over the
 // longest stretch where the projection still tells the truth about its width.
 func shadowBand(e *data.Eclipse) []geo.Point {
+	// The two limits are traced in step. If the table ever disagrees, band the
+	// stretch they share rather than letting one layer take the build down.
+	traced := min(len(e.North), len(e.South))
+	if traced != max(len(e.North), len(e.South)) {
+		log.Printf("eclipse %s has %d north and %d south points", e.Date, len(e.North), len(e.South))
+	}
+
 	best, current := [2]int{0, 0}, -1
-	for i := range e.North {
+	for i := range traced {
 		spread := math.Abs(geo.WrapLon(e.North[i].Lon - e.South[i].Lon))
 		if spread > maxLimitSpread {
 			current = -1
@@ -364,21 +386,26 @@ func addLaunches(ctx context.Context, client *sources.Client, sky *render.Sky, n
 const tickerLaunches = 1
 
 func launchLabel(l sources.Launch) string {
-	return fmt.Sprintf("%s  %s", l.At.Format("02 Jan 15:04Z"), l.Name)
+	return fmt.Sprintf("%s  %s", launchWhen(l), l.Name)
 }
 
 // tickerLine spells the T-0 out in full. A countdown would be a lie the moment
 // the file is cached, so the SVG only ever states absolute times.
 func tickerLine(l sources.Launch) string {
-	when := l.At.Format("02 Jan 15:04Z")
-	if l.Vague {
-		when = l.At.Format("02 Jan") + " (TBD)"
-	}
 	site := l.Site
 	if site != "" {
 		site = "  ·  " + site
 	}
-	return fmt.Sprintf("%s  %s%s", when, l.Name, site)
+	return fmt.Sprintf("%s  %s%s", launchWhen(l), l.Name, site)
+}
+
+// launchWhen never writes a clock the feed did not give: a day-precision T-0
+// says the day and admits the rest.
+func launchWhen(l sources.Launch) string {
+	if l.Vague {
+		return l.At.Format("02 Jan") + " (TBD)"
+	}
+	return l.At.Format("02 Jan 15:04Z")
 }
 
 func buildTerminator(now time.Time) *render.Terminator {
