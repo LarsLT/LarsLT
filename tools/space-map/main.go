@@ -101,6 +101,9 @@ const (
 	radiantReach = 70.0
 	meteorSeed   = 1833 // the Leonid storm that started meteor science
 	maxStreaks   = 34
+
+	// Clear of the top edge by a long streak's rise, so none is drawn half cut.
+	streakHeadroom = 6.0
 )
 
 // addMeteors scatters streaks over the latitudes the busiest running shower is
@@ -114,7 +117,10 @@ func addMeteors(sky *render.Sky, now time.Time) {
 
 	north := math.Min(90, shower.RadiantDec+radiantReach)
 	south := math.Max(-90, shower.RadiantDec-radiantReach)
-	top, bottom := geo.Y(north), geo.Y(south)
+
+	// A streak is drawn up and to the left of the point it is scattered at, so
+	// one landing flush against the top of the map has its head cut off.
+	top, bottom := math.Max(geo.Y(north), streakHeadroom), geo.Y(south)
 
 	// More meteors an hour, more streaks, but never a swarm.
 	count := min(maxStreaks, 8+shower.ZHR/5)
@@ -183,10 +189,11 @@ func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, no
 		}
 	}
 	if st.Leg != "" {
-		// The negative delay is what puts the station at today's position on load.
+		// The negative delay is what puts the station at today's position on load,
+		// measured along the drawn line because that is what CSS walks.
 		span := times[leg[1]].Sub(times[leg[0]])
 		st.Seconds = int(span.Seconds())
-		st.Delay = render.PhaseDelay(span, times[leg[0]], now)
+		st.Delay = render.ArcPhaseDelay(points[leg[0]:leg[1]+1], times[leg[0]:leg[1]+1], now)
 
 		// A leg still ahead of now would wrap the phase round to its far end, and
 		// its start is where the station crosses the edge of the map anyway.
@@ -247,8 +254,9 @@ func addEclipse(sky *render.Sky, now time.Time) {
 	}
 
 	sky.Eclipse = &render.Eclipse{
-		Band:    render.PolygonPath(shadowBand(e), 0),
-		Centre:  centre[0],
+		Band:    render.PolygonPath(shadowBand(e)),
+		Centre:  centre,
+		Umbra:   longest(centre),
 		Seconds: umbraLoop,
 	}
 	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.EclipseColour, Label: "eclipse path"})
@@ -256,6 +264,18 @@ func addEclipse(sky *render.Sky, now time.Time) {
 		when.Format("02 Jan 2006"), e.Kind, e.Greatest, e.Regions))
 
 	log.Printf("next eclipse %s %s over %s", e.Date, e.Kind, e.Regions)
+}
+
+// longest is which run of a track the umbra is worth riding. A path split at
+// the map's edge leaves the shadow crossing only the stretch it spends longest.
+func longest(runs []string) string {
+	best := ""
+	for _, run := range runs {
+		if len(run) > len(best) {
+			best = run
+		}
+	}
+	return best
 }
 
 // maxLimitSpread is how far apart the shadow's edges may sit in longitude
@@ -296,6 +316,15 @@ func shadowBand(e *data.Eclipse) []geo.Point {
 	for i := len(south) - 1; i >= 0; i-- {
 		band = append(band, south[i])
 	}
+
+	// A ring is filled as drawn, so one that leaves the map at an edge and comes
+	// back at the other is a stripe across the world rather than a shadow.
+	for i := 1; i < len(band); i++ {
+		if math.Abs(band[i].Lon-band[i-1].Lon) > 180 {
+			log.Printf("eclipse %s crosses the map's edge, drawing the centre line only", e.Date)
+			return nil
+		}
+	}
 	return band
 }
 
@@ -318,7 +347,7 @@ func addAurora(ctx context.Context, client *sources.Client, sky *render.Sky, now
 	for _, north := range []bool{true, false} {
 		ring := astro.Oval(kp.Kp, north, ovalStepDeg)
 		sky.Aurora = append(sky.Aurora, render.Aurora{
-			Path:  render.PolygonPath(ring, 0),
+			Path:  render.PolygonPath(ring),
 			North: north,
 		})
 	}
@@ -416,7 +445,8 @@ func buildTerminator(now time.Time) *render.Terminator {
 	log.Printf("subsolar point %.2fN %.2fE", subsolar.Lat, subsolar.Lon)
 
 	return &render.Terminator{
-		NightPath: render.PolygonPath(night, 0),
+		NightPath: render.PolygonPath(night),
+		EdgePath:  render.PathD(project(astro.TerminatorTrace(subsolar, terminatorStepDeg)), false),
 		SunX:      sun.X,
 		SunY:      sun.Y,
 	}

@@ -64,23 +64,27 @@ func TerminatorLatitude(lon, subsolarLon, declination float64) float64 {
 	return math.Atan(-math.Cos(hourAngle)/math.Tan(declination*deg)) * rad
 }
 
-// NightPolygon traces the unlit half of the world. Darkness always reaches one
-// pole, so it is a single band: the terminator, closed along that pole's edge.
-func NightPolygon(subsolar geo.Point, stepDeg float64) []geo.Point {
+// TerminatorTrace follows the day/night boundary alone, west to east. It is the
+// only part of the night's outline that is a real line on the ground.
+func TerminatorTrace(subsolar geo.Point, stepDeg float64) []geo.Point {
 	var pts []geo.Point
 	for lon := -180.0; lon <= 180.0+stepDeg/2; lon += stepDeg {
 		lat := TerminatorLatitude(lon, subsolar.Lon, subsolar.Lat)
 		pts = append(pts, geo.Point{Lon: lon, Lat: lat})
 	}
+	return pts
+}
 
+// NightPolygon traces the unlit half of the world. Darkness always reaches one
+// pole, so it is a single band: the terminator, closed along that pole's edge.
+func NightPolygon(subsolar geo.Point, stepDeg float64) []geo.Point {
 	// Northern summer lights the north pole, so the darkness hangs south.
 	polarLat := -90.0
 	if subsolar.Lat < 0 {
 		polarLat = 90.0
 	}
-	pts = append(pts,
+	return append(TerminatorTrace(subsolar, stepDeg),
 		geo.Point{Lon: 180, Lat: polarLat},
 		geo.Point{Lon: -180, Lat: polarLat},
 	)
-	return pts
 }

@@ -28,15 +28,14 @@ type Sky struct {
 	Ticker     []string
 }
 
-// PolygonPath projects a lon/lat ring into map space, optionally shifted a
-// whole turn of the globe so a copy can sit alongside the original.
-func PolygonPath(pts []geo.Point, lonShift float64) string {
+// PolygonPath projects a lon/lat ring into map space and closes it.
+func PolygonPath(pts []geo.Point) string {
 	if len(pts) == 0 {
 		return ""
 	}
 	xy := make([]geo.XY, 0, len(pts))
 	for _, p := range pts {
-		xy = append(xy, geo.Project(geo.Point{Lon: p.Lon + lonShift, Lat: p.Lat}))
+		xy = append(xy, geo.Project(p))
 	}
 	return PathD(xy, true)
 }
@@ -50,7 +49,14 @@ func Document(sky Sky) string {
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %s %s" width="%s" height="%s" role="img" aria-label="%s">`,
 		Num(Width), Num(Height), Num(Width), Num(Height), Esc(TitleText))
 	fmt.Fprintf(&b, `<title>%s</title>`, Esc(TitleText))
-	b.WriteString(`<desc>Day and night on Earth right now, rebuilt every 30 minutes.</desc>`)
+	// Stamping the build time is the only way to tell a stale image from a
+	// frozen workflow, since camo serves whatever it last cached either way.
+	if sky.Generated.IsZero() {
+		b.WriteString(`<desc>Day and night on Earth right now, rebuilt every 30 minutes.</desc>`)
+	} else {
+		fmt.Fprintf(&b, `<desc>Day and night on Earth at %s UTC, rebuilt every 30 minutes.</desc>`,
+			Esc(sky.Generated.UTC().Format("2006-01-02 15:04")))
+	}
 
 	writeDefs(&b)
 	writeStyle(&b)

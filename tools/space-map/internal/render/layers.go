@@ -15,8 +15,11 @@ type LegendItem struct {
 // baked at the current sun position and then slides west, as the real one does.
 type Terminator struct {
 	NightPath string
-	SunX      float64
-	SunY      float64
+	// EdgePath is the day/night boundary alone. NightPath has to close along the
+	// dark pole, and stroking that seam draws a terminator where there is none.
+	EdgePath string
+	SunX     float64
+	SunY     float64
 }
 
 // terminator draws the night side twice, side by side, so that sliding the
@@ -28,10 +31,16 @@ func terminator(b *strings.Builder, term *Terminator) {
 	b.WriteString(`<g class="night">`)
 	for _, shift := range []float64{0, MapW} {
 		fmt.Fprintf(b, `<g transform="translate(%s,0)">`, Num(shift))
-		fmt.Fprintf(b, `<path d="%s" fill="%s" opacity="0.55"/>`, term.NightPath, Night)
-		fmt.Fprintf(b,
-			`<path d="%s" fill="none" stroke="%s" stroke-width="0.8" opacity="0.35"/>`,
-			term.NightPath, Accent)
+		if term.EdgePath == "" {
+			fmt.Fprintf(b,
+				`<path d="%s" fill="%s" fill-opacity="0.55" stroke="%s" stroke-width="0.8" stroke-opacity="0.35"/>`,
+				term.NightPath, Night, Accent)
+		} else {
+			fmt.Fprintf(b, `<path d="%s" fill="%s" fill-opacity="0.55"/>`, term.NightPath, Night)
+			fmt.Fprintf(b,
+				`<path d="%s" fill="none" stroke="%s" stroke-width="0.8" stroke-opacity="0.35"/>`,
+				term.EdgePath, Accent)
+		}
 		sun(b, term.SunX, term.SunY)
 		b.WriteString(`</g>`)
 	}
@@ -85,6 +94,9 @@ type Aurora struct {
 
 func aurora(b *strings.Builder, bands []Aurora) {
 	for _, band := range bands {
+		if band.Path == "" {
+			continue
+		}
 		gradient := "auroraN"
 		if !band.North {
 			gradient = "auroraS"
@@ -96,27 +108,35 @@ func aurora(b *strings.Builder, bands []Aurora) {
 // Eclipse is the shadow's track: a filled band between the two limits, and the
 // centre line the umbra runs along. Which eclipse it is goes in the ticker.
 type Eclipse struct {
-	Band    string
-	Centre  string
+	Band string
+	// Centre is one path per crossing of the map's edge, and Umbra is the run
+	// long enough to be worth riding.
+	Centre  []string
+	Umbra   string
 	Seconds int
 }
 
 func eclipse(b *strings.Builder, e *Eclipse) {
-	if e == nil || e.Centre == "" {
+	if e == nil || len(e.Centre) == 0 {
 		return
 	}
 	if e.Band != "" {
 		fmt.Fprintf(b, `<path d="%s" fill="%s" opacity="0.2"/>`, e.Band, EclipseColour)
 	}
-	fmt.Fprintf(b,
-		`<path id="umbratrack" d="%s" fill="none" stroke="%s" stroke-width="1.1" opacity="0.75"/>`,
-		e.Centre, EclipseColour)
+	for _, run := range e.Centre {
+		fmt.Fprintf(b,
+			`<path d="%s" fill="none" stroke="%s" stroke-width="1.1" opacity="0.75"/>`,
+			run, EclipseColour)
+	}
+	if e.Umbra == "" {
+		return
+	}
 
 	// The umbra is a prop, not a clock: it loops in seconds where the real
 	// shadow takes hours, so the label carries the date to keep that honest.
 	fmt.Fprintf(b,
 		`<circle class="umbra" r="4.5" fill="%s" style="offset-path:path('%s');animation-duration:%ds"/>`,
-		EclipseColour, e.Centre, e.Seconds)
+		EclipseColour, e.Umbra, e.Seconds)
 }
 
 // Streak is one meteor, drawn as a short diagonal dash that fades as it falls.
@@ -194,6 +214,10 @@ func launchPads(b *strings.Builder, pads []LaunchPad) {
 	}
 }
 
+// labelSize has to be a constant the layout can read, not just a literal in the
+// markup, because the label's width decides which side of the pad it goes on.
+const labelSize = 11.5
+
 // nextLaunch is the one pad worth looking at: a ring expanding out of it, and a
 // label placed inboard so it never runs off the edge of the map.
 func nextLaunch(b *strings.Builder, p LaunchPad) {
@@ -205,13 +229,15 @@ func nextLaunch(b *strings.Builder, p LaunchPad) {
 	if p.Label == "" {
 		return
 	}
+	// The label sits inside the map's clip path, so what decides the side is
+	// where the text ends, not where the pad is.
 	anchor, dx := "start", 9.0
-	if p.X > MapW*0.72 {
+	if p.X+dx+TextWidth(p.Label, labelSize) > MapW {
 		anchor, dx = "end", -9.0
 	}
 	fmt.Fprintf(b,
-		`<text x="%s" y="%s" fill="%s" font-size="11.5" text-anchor="%s">%s</text>`,
-		Num(p.X+dx), Num(p.Y+4), LaunchNext, anchor, Esc(p.Label))
+		`<text x="%s" y="%s" fill="%s" font-size="%s" text-anchor="%s">%s</text>`,
+		Num(p.X+dx), Num(p.Y+4), LaunchNext, Num(labelSize), anchor, Esc(p.Label))
 }
 
 func land(b *strings.Builder, path string) {
@@ -234,13 +260,20 @@ func legend(b *strings.Builder, items []LegendItem) {
 	}
 }
 
+// tickerSize, and the width a line has to live in. A launch line is the feed's
+// mission name and site verbatim, so nothing upstream bounds how wide it gets.
+const (
+	tickerSize = 12.5
+	tickerW    = MapW - 2*Pad
+)
+
 func ticker(b *strings.Builder, lines []string) {
 	for i, line := range lines {
 		if i >= MaxTickerRow {
 			break
 		}
 		y := TickerY + float64(i)*TickerLineH
-		fmt.Fprintf(b, `<text class="mono" x="%s" y="%s" fill="%s" font-size="12.5">%s</text>`,
-			Num(Pad), Num(y), Muted, Esc(line))
+		fmt.Fprintf(b, `<text class="mono" x="%s" y="%s" fill="%s" font-size="%s">%s</text>`,
+			Num(Pad), Num(y), Muted, Num(tickerSize), Esc(Ellipsis(line, tickerSize, tickerW)))
 	}
 }
