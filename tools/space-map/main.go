@@ -317,19 +317,21 @@ func addAurora(ctx context.Context, client *sources.Client, sky *render.Sky, now
 		})
 	}
 
-	reach := astro.GeographicLatAt(astro.VisibleFrom(kp.Kp), homeLon, true)
+	// The sentence describes the band that is drawn, not a wider estimate of who
+	// could glimpse it, so the words and the picture cannot disagree.
+	edge := astro.GeographicLatAt(astro.OvalBoundary(kp.Kp), homeLon, true)
 	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.AuroraCore, Label: "auroral oval"})
-	sky.Ticker = append(sky.Ticker, auroraLine(kp.Kp, reach))
+	sky.Ticker = append(sky.Ticker, auroraLine(kp.Kp, edge))
 
-	log.Printf("Kp %.2f at %s, visible down to %.1fN over the Netherlands",
-		kp.Kp, kp.At.Format(time.RFC3339), reach)
+	log.Printf("Kp %.2f at %s, oval reaches %.1fN over the Netherlands",
+		kp.Kp, kp.At.Format(time.RFC3339), edge)
 }
 
 // auroraLine turns a Kp number into the thing people actually want to know.
-func auroraLine(kp, reach float64) string {
-	where := fmt.Sprintf("visible down to %.0fN", reach)
-	if reach <= dutchLat {
-		where = "visible from the Netherlands"
+func auroraLine(kp, edge float64) string {
+	where := fmt.Sprintf("reaches %.0fN", edge)
+	if edge <= dutchLat {
+		where = "overhead in the Netherlands"
 	}
 	return fmt.Sprintf("Kp %.1f  ·  aurora %s", kp, where)
 }
