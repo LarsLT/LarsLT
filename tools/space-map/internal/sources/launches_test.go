@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -36,8 +37,8 @@ func TestLaunchesParsesCapturedFeed(t *testing.T) {
 		pos   geo.Point
 		vague bool
 	}{
-		{"Falcon 9 Block 5 | NROL-95", "2026-07-30T07:10:19Z", "Cape Canaveral SFS",
-			geo.Point{Lon: -80.57735736, Lat: 28.56194122}, false},
+		// NROL-95 is captured mid-flight: its T-0 is still ahead of feedNow, but
+		// the feed already calls it a success, so the map must not draw it.
 		{"Rocket | Out Of Feed Order", "2026-07-31T18:00:00Z", "Baikonur Cosmodrome",
 			geo.Point{Lon: 63.564003, Lat: 45.996034}, false},
 		{"Falcon 9 Block 5 | Starlink Group 17-52", "2026-08-01T02:00:00Z", "Vandenberg SFB",
@@ -75,9 +76,9 @@ func TestLaunchesParsesCapturedFeed(t *testing.T) {
 		}
 	}
 
-	// Two of the six share a pad, and one pad is one dot.
-	if pads := Pads(launches); len(pads) != 5 {
-		t.Errorf("grouped into %d pads, want 5", len(pads))
+	// Two of the five share a pad, and one pad is one dot.
+	if pads := Pads(launches); len(pads) != 4 {
+		t.Errorf("grouped into %d pads, want 4", len(pads))
 	}
 }
 
@@ -117,6 +118,51 @@ func TestVagueT0(t *testing.T) {
 			t.Errorf("%q does not pin the time of day", abbrev)
 		}
 	}
+}
+
+// TestLaunchesDropsFlightsThatAlreadyWent covers what the live feed happens not
+// to contain today: a flight the map would otherwise still call the next one.
+func TestLaunchesDropsFlightsThatAlreadyWent(t *testing.T) {
+	for _, tc := range []struct {
+		status string
+		drawn  bool
+		vague  bool
+	}{
+		{"Go", true, false},
+		{"TBC", true, false},
+		{"TBD", true, false},
+		{"Hold", true, true},
+		{"Success", false, false},
+		{"Failure", false, false},
+		{"Partial Failure", false, false},
+		{"In Flight", false, false},
+		{"Something New", true, false},
+	} {
+		body := feedWithStatus(tc.status)
+		launches, err := parseLaunches(body, feedNow)
+		if err != nil {
+			t.Fatalf("%s: parse: %v", tc.status, err)
+		}
+		if drawn := len(launches) == 1; drawn != tc.drawn {
+			t.Errorf("%s: drawn = %v, want %v", tc.status, drawn, tc.drawn)
+			continue
+		}
+		if tc.drawn && launches[0].Vague != tc.vague {
+			t.Errorf("%s: vague = %v, want %v", tc.status, launches[0].Vague, tc.vague)
+		}
+	}
+}
+
+// feedWithStatus is one minute-precise flight, well inside the window, whose
+// only interesting property is the status upstream put on it.
+func feedWithStatus(status string) []byte {
+	return fmt.Appendf(nil, `{"results":[{
+		"name":"Rocket | Payload","net":%q,
+		"net_precision":{"abbrev":"MIN"},"status":{"abbrev":%q},
+		"launch_service_provider":{"abbrev":"ACME"},
+		"pad":{"name":"LC-1","latitude":28.5,"longitude":-80.5,
+		"location":{"name":"Cape Canaveral SFS, FL, USA"}}}]}`,
+		feedNow.Add(48*time.Hour).Format(time.RFC3339), status)
 }
 
 func names(launches []Launch) []string {

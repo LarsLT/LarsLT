@@ -40,6 +40,9 @@ type launchFeed struct {
 		Precision struct {
 			Abbrev string `json:"abbrev"`
 		} `json:"net_precision"`
+		Status struct {
+			Abbrev string `json:"abbrev"`
+		} `json:"status"`
 		Provider struct {
 			Abbrev string `json:"abbrev"`
 			Name   string `json:"name"`
@@ -101,6 +104,9 @@ func parseLaunches(body []byte, now time.Time) ([]Launch, error) {
 		if err != nil || at.Before(now) || at.After(cutoff) {
 			continue
 		}
+		if !aheadOfUs(r.Status.Abbrev) {
+			continue
+		}
 		if r.Pad.Latitude == nil || r.Pad.Longitude == nil {
 			continue
 		}
@@ -110,13 +116,29 @@ func parseLaunches(body []byte, now time.Time) ([]Launch, error) {
 			Pad:      r.Pad.Name,
 			Site:     shortSite(r.Pad.Location.Name),
 			At:       at.UTC(),
-			Vague:    vagueT0(r.Precision.Abbrev),
+			Vague:    vagueT0(r.Precision.Abbrev) || r.Status.Abbrev == statusHold,
 			Position: geo.Point{Lon: *r.Pad.Longitude, Lat: *r.Pad.Latitude},
 		})
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].At.Before(out[j].At) })
 	return out, nil
+}
+
+// statusHold is a stopped countdown. The T-0 in the feed is whatever it read
+// when the clock stopped, so the day is all of it still worth printing.
+const statusHold = "Hold"
+
+// aheadOfUs says whether the flight is still to come. The upcoming feed carries
+// a launch through liftoff and holds on to it for hours afterwards.
+func aheadOfUs(status string) bool {
+	switch status {
+	case "Success", "Failure", "Partial Failure", "In Flight":
+		return false
+	}
+	// Anything upstream invents counts as pending: a launch drawn a little too
+	// long is a smaller lie than a map that quietly loses the layer.
+	return true
 }
 
 // vagueT0 says whether net_precision leaves the time of day unknown. The three
