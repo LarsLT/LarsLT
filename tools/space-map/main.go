@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -64,6 +65,7 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 		{Colour: render.SunCore, Label: "daylight"},
 	}
 
+	addEclipse(&sky, now)
 	addAurora(ctx, client, &sky, now)
 	addLaunches(ctx, client, &sky, now)
 
@@ -84,6 +86,72 @@ func run(outDir, cacheDir string, offline bool, now time.Time) error {
 // terminatorStepDeg is how finely the day/night boundary is traced. Two degrees
 // is under three pixels of spacing on a 1000px map.
 const terminatorStepDeg = 2.0
+
+// umbraLoop is how long the shadow takes to cross the map. The real crossing
+// runs to hours, so this is openly a loop rather than a clock.
+const umbraLoop = 14
+
+// addEclipse draws the next central solar eclipse: the shadow's band, the
+// centre line, and an umbra running along it.
+func addEclipse(sky *render.Sky, now time.Time) {
+	e, err := data.NextEclipse(now)
+	if err != nil {
+		log.Printf("eclipse unavailable: %v", err)
+		return
+	}
+	when, _ := e.When()
+
+	centre := render.TrackD(e.Central)
+	if len(centre) == 0 {
+		log.Print("eclipse has no drawable centre line")
+		return
+	}
+
+	sky.Eclipse = &render.Eclipse{
+		Band:    render.PolygonPath(shadowBand(e), 0),
+		Centre:  centre[0],
+		Seconds: umbraLoop,
+	}
+	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.EclipseColour, Label: "eclipse path"})
+	sky.Ticker = append(sky.Ticker, fmt.Sprintf("%s  ·  %s eclipse, greatest %s UT  ·  %s",
+		when.Format("02 Jan 2006"), e.Kind, e.Greatest, e.Regions))
+
+	log.Printf("next eclipse %s %s over %s", e.Date, e.Kind, e.Regions)
+}
+
+// maxLimitSpread is how far apart the shadow's edges may sit in longitude
+// before the band is dropped, since near a pole this projection smears it.
+const maxLimitSpread = 25.0
+
+// shadowBand closes the two limits into the strip the shadow sweeps, over the
+// longest stretch where the projection still tells the truth about its width.
+func shadowBand(e *data.Eclipse) []geo.Point {
+	best, current := [2]int{0, 0}, -1
+	for i := range e.North {
+		spread := math.Abs(geo.WrapLon(e.North[i].Lon - e.South[i].Lon))
+		if spread > maxLimitSpread {
+			current = -1
+			continue
+		}
+		if current < 0 {
+			current = i
+		}
+		if i-current > best[1]-best[0] {
+			best = [2]int{current, i}
+		}
+	}
+	if best[1]-best[0] < 2 {
+		return nil
+	}
+
+	north, south := e.North[best[0]:best[1]+1], e.South[best[0]:best[1]+1]
+	band := make([]geo.Point, 0, len(north)+len(south))
+	band = append(band, north...)
+	for i := len(south) - 1; i >= 0; i-- {
+		band = append(band, south[i])
+	}
+	return band
+}
 
 // ovalStepDeg traces the auroral edges at the same resolution as the sun's.
 const ovalStepDeg = 2.0

@@ -20,6 +20,7 @@ type Sky struct {
 	LandPath   string
 	Terminator *Terminator
 	Aurora     []Aurora
+	Eclipse    *Eclipse
 	Launches   []LaunchPad
 	Legend     []LegendItem
 	Ticker     []string
@@ -63,6 +64,7 @@ func Document(sky Sky) string {
 	}
 	terminator(&b, sky.Terminator)
 	aurora(&b, sky.Aurora)
+	eclipse(&b, sky.Eclipse)
 	launchPads(&b, sky.Launches)
 	b.WriteString(`</g>`)
 
@@ -107,6 +109,10 @@ func writeStyle(b *strings.Builder) {
 		`@keyframes ping{from{transform:scale(.5);opacity:.9}to{transform:scale(3.6);opacity:0}}`+
 		`.glow{animation:glow 4s ease-in-out infinite}`+
 		`@keyframes glow{0%%,100%%{opacity:.42}50%%{opacity:.78}}`+
+		`.umbra{offset-rotate:0deg;animation-name:umbra;animation-timing-function:linear;`+
+		`animation-iteration-count:infinite}`+
+		`@keyframes umbra{0%%{offset-distance:0%%;opacity:0}10%%,90%%{opacity:.95}`+
+		`100%%{offset-distance:100%%;opacity:0}}`+
 		`</style>`,
 		FontSans, FontMono, int(SolarDay.Seconds()), Num(MapW))
 }

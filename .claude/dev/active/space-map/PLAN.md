@@ -131,8 +131,9 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 - [x] M5. Aurora: GFZ Kp, oval geometry, visibility sentence. Both ovals are dipole small
       circles around the geomagnetic poles, checked by test to hold their radius exactly.
       The SWPC OVATION probe moves to M9, since it can only be answered from a runner.
-- [ ] M6. `cmd/buildeclipses`: parse the NASA `SEpath` tables for solar eclipses
-      2026-2030 into `data/eclipses.json`, then the band and umbra layer.
+- [x] M6. `cmd/buildeclipses`: parse the NASA `SEpath` tables for solar eclipses
+      2026-2030 into `data/eclipses.json`, then the band and umbra layer. Eight central
+      eclipses, 48 KB. The umbra rides a CSS `offset-path`, confirmed in Chromium.
 - [ ] M7. ISS: Celestrak TLE, SGP4, ground track for plus or minus one orbit, dot on a CSS
       `offset-path`. `wheretheiss.at` as fallback for the instantaneous point.
 - [ ] M8. Meteor showers from the static table, streak layer.
@@ -154,6 +155,10 @@ The last good Launch Library response is cached on the output branch as a 429 fa
 - CSS keyframes only. No SMIL, no `<script>`. GitHub strips scripts and proxies images
   through camo, and snk proves CSS animation inside `<style>` survives that path. Motion
   along a path uses CSS `offset-path`, not `<animateMotion>`.
+- The shadow band is dropped where the two limits diverge by more than 25 degrees of
+  longitude, which happens near a pole. The shadow is a couple of hundred kilometres wide,
+  but equirectangular makes that most of a parallel up there, and the fill ends up claiming
+  a continent. The centre line is still drawn the whole way.
 - Eclipse paths precomputed and committed. A handful of solar eclipses per year, geometry
   fixed centuries ahead. Scraping NASA every 30 minutes would be pointless traffic against
   a page that never changes.

@@ -93,6 +93,32 @@ func aurora(b *strings.Builder, bands []Aurora) {
 	}
 }
 
+// Eclipse is the shadow's track: a filled band between the two limits, and the
+// centre line the umbra runs along. Which eclipse it is goes in the ticker.
+type Eclipse struct {
+	Band    string
+	Centre  string
+	Seconds int
+}
+
+func eclipse(b *strings.Builder, e *Eclipse) {
+	if e == nil || e.Centre == "" {
+		return
+	}
+	if e.Band != "" {
+		fmt.Fprintf(b, `<path d="%s" fill="%s" opacity="0.2"/>`, e.Band, EclipseColour)
+	}
+	fmt.Fprintf(b,
+		`<path id="umbratrack" d="%s" fill="none" stroke="%s" stroke-width="1.1" opacity="0.75"/>`,
+		e.Centre, EclipseColour)
+
+	// The umbra is a prop, not a clock: it loops in seconds where the real
+	// shadow takes hours, so the label carries the date to keep that honest.
+	fmt.Fprintf(b,
+		`<circle class="umbra" r="4.5" fill="%s" style="offset-path:path('%s');animation-duration:%ds"/>`,
+		EclipseColour, e.Centre, e.Seconds)
+}
+
 // LaunchPad is a projected launch site. The soonest one gets the ring and the
 // only label, so a crowded coast stays readable.
 type LaunchPad struct {
