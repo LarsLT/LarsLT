@@ -1,0 +1,167 @@
+package astro
+
+import (
+	"math"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+)
+
+// oval fills a grid with a band between two latitudes, over the longitudes
+// given, which is the shape every test here is a variation on.
+func oval(t *testing.T, low, high int, lons []int) *AuroraGrid {
+	t.Helper()
+	g := NewAuroraGrid(time.Now())
+	for lon := range gridLons {
+		for lat := -90; lat <= 90; lat++ {
+			p := 0.0
+			band := lat >= low && lat <= high
+			if low < 0 {
+				band = lat <= low && lat >= high
+			}
+			if band && (lons == nil || slices.Contains(lons, lon)) {
+				p = 40
+			}
+			if err := g.Set(lon, lat, p); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	return g
+}
+
+// A grid missing cells must not pass for a quiet sky: a hole reads as no aurora
+// there, which is a bite taken out of the oval.
+func TestGridRejectsGapsAndNonsense(t *testing.T) {
+	g := NewAuroraGrid(time.Now())
+	if err := g.Complete(); err == nil {
+		t.Error("an empty grid passed as complete")
+	}
+	if err := g.Set(0, 91, 5); err == nil {
+		t.Error("accepted a cell off the top of the grid")
+	}
+	if err := g.Set(360, 0, 5); err == nil {
+		t.Error("accepted a longitude off the grid")
+	}
+	if err := g.Set(0, 0, 140); err == nil {
+		t.Error("accepted a probability over 100")
+	}
+	if err := oval(t, 65, 72, nil).Complete(); err != nil {
+		t.Errorf("a full grid was called incomplete: %v", err)
+	}
+}
+
+// The drawn band is the ground the glow is seen from, so it has to reach
+// further towards the equator than the oval standing overhead.
+func TestFootprintReachesPastTheOvalItself(t *testing.T) {
+	rings := oval(t, 65, 72, nil).Footprint(true)
+	if len(rings) != 1 {
+		t.Fatalf("a band on every meridian came out as %d rings, want one closed one", len(rings))
+	}
+	lowest, highest := 91.0, -91.0
+	for _, p := range rings[0] {
+		lowest = math.Min(lowest, p.Lat)
+		highest = math.Max(highest, p.Lat)
+	}
+	if lowest >= 65 {
+		t.Errorf("band stops at %.1fN, no further south than the oval's own 65N", lowest)
+	}
+	if want := 65 - HorizonSkirt; math.Abs(lowest-want) > 1e-9 {
+		t.Errorf("band stops at %.1fN, want the %.1fN horizon line", lowest, want)
+	}
+	if highest != 72 {
+		t.Errorf("band reaches %.1fN, want the oval's poleward edge at 72N", highest)
+	}
+}
+
+// A closed ring has to span the whole map, seam included, or the oval is drawn
+// with a gash down the antimeridian.
+func TestFootprintClosesAcrossTheSeam(t *testing.T) {
+	ring := oval(t, 65, 72, nil).Footprint(true)[0]
+	west, east := 181.0, -181.0
+	for _, p := range ring {
+		west = math.Min(west, p.Lon)
+		east = math.Max(east, p.Lon)
+	}
+	if west != -180 || east != 180 {
+		t.Errorf("ring spans %.0f..%.0f, want -180..180", west, east)
+	}
+}
+
+// Aurora over half the world is half a ring, not a band closed across the side
+// where there is nothing to see.
+func TestFootprintBreaksWhereThereIsNoAurora(t *testing.T) {
+	var half []int
+	for lon := 10; lon < 100; lon++ {
+		half = append(half, lon)
+	}
+	rings := oval(t, 65, 72, half).Footprint(true)
+	if len(rings) != 1 {
+		t.Fatalf("got %d rings, want the one stretch that has aurora", len(rings))
+	}
+	for _, p := range rings[0] {
+		if p.Lon < 10 || p.Lon > 99 {
+			t.Fatalf("ring runs out to lon %.0f, outside the stretch with aurora", p.Lon)
+		}
+	}
+	if len(oval(t, 65, 72, []int{}).Footprint(true)) != 0 {
+		t.Error("drew a band for a sky with no aurora in it")
+	}
+}
+
+// The southern oval is the same shape upside down, and its skirt has to hang
+// north of it rather than off the bottom of the world.
+func TestSouthernFootprintHangsTowardsTheEquator(t *testing.T) {
+	rings := oval(t, -65, -72, nil).Footprint(false)
+	if len(rings) != 1 {
+		t.Fatalf("got %d rings, want one", len(rings))
+	}
+	highest := -91.0
+	for _, p := range rings[0] {
+		highest = math.Max(highest, p.Lat)
+	}
+	if want := -65 + HorizonSkirt; math.Abs(highest-want) > 1e-9 {
+		t.Errorf("band stops at %.1f, want the %.1f horizon line", highest, want)
+	}
+}
+
+// One hot cell far from the oval is noise. Anchoring on the column's strongest
+// reading keeps it from dragging the whole band down over Spain.
+func TestStrayCellDoesNotDragTheBandSouth(t *testing.T) {
+	g := oval(t, 65, 72, nil)
+	if err := g.Set(0, 40, 30); err != nil {
+		t.Fatal(err)
+	}
+	lat, ok := g.ReachAt(0, true)
+	if !ok {
+		t.Fatal("lost the band at the meridian with the stray cell")
+	}
+	if want := 65 - HorizonSkirt; math.Abs(lat-want) > 1e-9 {
+		t.Errorf("band reaches %.1fN, want %.1fN with the stray cell ignored", lat, want)
+	}
+}
+
+// The map only draws what someone could look at, so the test that decides it
+// has to hold for a midsummer pole in full daylight.
+func TestPolarDayLeavesNothingToSee(t *testing.T) {
+	june := time.Date(2026, time.June, 21, 12, 0, 0, 0, time.UTC)
+	subsolar := SubsolarPoint(june)
+
+	var arctic []geo.Point
+	for lon := -180.0; lon < 180; lon += 5 {
+		arctic = append(arctic, geo.Point{Lon: lon, Lat: 84})
+	}
+	if AnyDark(arctic, subsolar) {
+		t.Error("found night at 84N in midsummer")
+	}
+
+	var antarctic []geo.Point
+	for lon := -180.0; lon < 180; lon += 5 {
+		antarctic = append(antarctic, geo.Point{Lon: lon, Lat: -84})
+	}
+	if !AnyDark(antarctic, subsolar) {
+		t.Error("found no night at 84S in the southern winter")
+	}
+}
