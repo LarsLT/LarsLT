@@ -29,8 +29,9 @@ type Launch struct {
 	Pad      string
 	Site     string
 	At       time.Time
-	Vague    bool // T-0 is known only to the day or worse
-	Flying   bool // airborne right now, so the T-0 has gone stale
+	Vague    bool   // T-0 is known only to the day or worse
+	Flying   bool   // airborne right now, so the T-0 has gone stale
+	Orbit    string // where it is headed, as the feed's abbreviation
 	Position geo.Point
 }
 
@@ -48,6 +49,11 @@ type launchFeed struct {
 			Abbrev string `json:"abbrev"`
 			Name   string `json:"name"`
 		} `json:"launch_service_provider"`
+		Mission struct {
+			Orbit struct {
+				Abbrev string `json:"abbrev"`
+			} `json:"orbit"`
+		} `json:"mission"`
 		Pad struct {
 			Name      string   `json:"name"`
 			Latitude  *float64 `json:"latitude"`
@@ -123,6 +129,7 @@ func parseLaunches(body []byte, now time.Time) ([]Launch, error) {
 			At:       at.UTC(),
 			Vague:    vagueT0(r.Precision.Abbrev) || r.Status.Abbrev == statusHold,
 			Flying:   flying,
+			Orbit:    r.Mission.Orbit.Abbrev,
 			Position: geo.Point{Lon: *r.Pad.Longitude, Lat: *r.Pad.Latitude},
 		})
 	}

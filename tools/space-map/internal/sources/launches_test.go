@@ -36,19 +36,20 @@ func TestLaunchesParsesCapturedFeed(t *testing.T) {
 		site  string
 		pos   geo.Point
 		vague bool
+		orbit string
 	}{
 		// NROL-95 is captured mid-flight: its T-0 is still ahead of feedNow, but
 		// the feed already calls it a success, so the map must not draw it.
 		{"Rocket | Out Of Feed Order", "2026-07-31T18:00:00Z", "Baikonur Cosmodrome",
-			geo.Point{Lon: 63.564003, Lat: 45.996034}, false},
+			geo.Point{Lon: 63.564003, Lat: 45.996034}, false, ""},
 		{"Falcon 9 Block 5 | Starlink Group 17-52", "2026-08-01T02:00:00Z", "Vandenberg SFB",
-			geo.Point{Lon: -120.611, Lat: 34.632}, false},
+			geo.Point{Lon: -120.611, Lat: 34.632}, false, "LEO"},
 		{"Rocket | Second Flight From One Pad", "2026-08-04T14:00:00Z", "Vandenberg SFB",
-			geo.Point{Lon: -120.611, Lat: 34.632}, false},
+			geo.Point{Lon: -120.611, Lat: 34.632}, false, ""},
 		{"Spectrum | Onward and Upward", "2026-08-06T00:00:00Z", "Andøya Spaceport",
-			geo.Point{Lon: 15.5895, Lat: 69.1084}, true},
+			geo.Point{Lon: 15.5895, Lat: 69.1084}, true, "SSO"},
 		{"Rocket | Unknown Precision", "2026-08-11T09:30:00Z", "Satish Dhawan Space Centre",
-			geo.Point{Lon: 80.2304, Lat: 13.7199}, true},
+			geo.Point{Lon: 80.2304, Lat: 13.7199}, true, ""},
 	}
 
 	if len(launches) != len(want) {
@@ -70,6 +71,9 @@ func TestLaunchesParsesCapturedFeed(t *testing.T) {
 		}
 		if got.Vague != w.vague {
 			t.Errorf("%s vague = %v, want %v", w.name, got.Vague, w.vague)
+		}
+		if got.Orbit != w.orbit {
+			t.Errorf("%s heads for %q, want %q", w.name, got.Orbit, w.orbit)
 		}
 		if i > 0 && got.At.Before(launches[i-1].At) {
 			t.Errorf("%s is out of order", w.name)
