@@ -102,7 +102,31 @@ presented as the real trajectory.
   no `<script>`, no SMIL, nothing camo blocks.
 - The arc belongs to the ringed next-launch pad only. One arc, never a bundle.
 
-## Open decisions
+## Decisions — 2026-07-31
+
+**D1: loop it, styled quiet.** One visual state, no date gating. The feature was
+asked for as a simulation, and the umbra's own comment already sanctions a prop
+that loops in seconds where the real thing takes hours. Thin stroke, low opacity,
+no glow, so it reads as a projection; the label keeps carrying the real T-0.
+
+**D2: skip `Sub`, `Mars` and `L2`.** A 25-degree insertion arc means nothing for
+a sounding rocket or an escape trajectory. They keep the plain pad dot. Three of
+sixty records in the captured feed.
+
+**D3: no per-site heading table.** Trust the formula and take whichever root it
+gives. This is a deliberate accuracy trade, made with the cost known: the two
+cases this plan already identified stay wrong.
+
+- Vandenberg `PO` draws due north, up the California coast, where the real
+  flight goes south down the Pacific.
+- Guiana `SSO` draws south over Brazil, where Kourou really flies north over
+  the Atlantic.
+
+Both draw over land, which is exactly the tell the Verification section names.
+If that looks bad on the live profile, the fix is the table this decision
+dropped, not a change to the geometry.
+
+## Open decisions (resolved above)
 
 **D1 — does the dot loop, or only run near T-0?** The umbra was just gated to run
 only while the eclipse is genuinely happening, and the meteor layer was deleted for
