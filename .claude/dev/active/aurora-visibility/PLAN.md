@@ -82,9 +82,17 @@ The rebuild runs every 30 minutes, so live measurements plus a short forecast bo
 - **Mask, not clip-at-build.** A build-time clip is 7.5° of longitude stale after 30 minutes
   and visibly wrong to anyone who watches the terminator move. The mask costs one `<mask>`
   element and is correct for as long as the file is open.
-- **Reuse the geometric night polygon** for the mask rather than a −6° civil-twilight version.
-  One shape, guaranteed in sync with the terminator that is already drawn. A feathered mask
-  edge covers the overstatement at dusk. Revisit if it reads too generous.
+- **The mask is nautical twilight, sun 12° down, not the terminator.** Reusing the geometric
+  night polygon was the first cut — one shape, guaranteed in sync — and it read too generous,
+  as suspected: a quarter of the northern band shown sat in twilight, where the sky is far too
+  bright for a faint arc no matter that the sun is technically down. `DarkPolygon` traces the
+  cap around the antisolar point instead, and the same 12° gate decides whether a band counts
+  as visible at all, so the picture and the ticker agree.
+- **That cap does not always reach a pole.** Deep in a season it swallows one and closes along
+  it like the night side does. Within about a month either side of an equinox it reaches
+  neither — at an equinox the sun skims the horizon at both poles — and the shape is a lens
+  that can hang over the antimeridian. Its longitudes are left unwrapped and the mask draws
+  three copies rather than two, which covers the seam without splitting the polygon.
 - **Kp oval kept as the fallback**, not deleted. SWPC was bot-walled from this machine when
   the space-map plan was written and answers now; it may well block the Actions runner.
 - **"Nobody" means nowhere on Earth**, not nowhere populated. The southern oval over an empty
