@@ -47,20 +47,31 @@ The rebuild runs every 30 minutes, so live measurements plus a short forecast bo
 
 ## Steps
 
-- [ ] Drop the `Storming` Kp≥5 gate (3ce12be) — wrong model, hides quiet aurora Norway can see
-- [ ] `internal/sources/ovation.go` — fetch, cache, validate the probability grid
-- [ ] `internal/astro/ovation.go` — threshold the grid into bands per hemisphere, with the
+- [x] Drop the `Storming` Kp≥5 gate (3ce12be) — wrong model, hides quiet aurora Norway can see
+- [x] `internal/sources/ovation.go` — fetch, cache, validate the probability grid
+- [x] `internal/astro/ovation.go` — threshold the grid into bands per hemisphere, with the
       horizon skirt and gaps split into runs
-- [ ] `internal/render` — night mask, feathered edge, aurora drawn through it
-- [ ] `main.go` — OVATION first, Kp oval as fallback, ticker sentence from the drawn footprint
-- [ ] Darkness test: an oval entirely in daylight produces no layer, no legend, no ticker
+- [x] `internal/render` — night mask, feathered edge, aurora drawn through it
+- [x] `main.go` — OVATION first, Kp oval as fallback, ticker sentence from the drawn footprint
+- [x] Darkness test: an oval entirely in daylight produces no layer, no legend, no ticker
 - [ ] Verify the mask survives camo (precedent: `clipPath` and gradients already render)
+- [ ] Watch a run of the workflow: does SWPC answer an Actions runner, or is the Kp oval
+      carrying the layer in production
 
 ## Decisions
 
-- **Threshold at 3% probability, not 10.** NOAA's own map draws its lowest contour low because
-  the diffuse edge is real; 10% keeps only the bright core and would hide the nights when the
-  glow is a faint arc on the northern horizon — exactly the nights this is meant to show.
+- **Two thresholds, not one: seed at 8%, trace out to 4%.** A single low contour was tried at
+  3% and drew the polar cap as a slab across the bottom of the map — on a quiet day the cap
+  carries 3-5% of diffuse glow with no oval under it at all, and the projection stretches the
+  pole to the full map width. The seed demands proof of an oval on that meridian; the lower
+  contour then keeps the diffuse edge, which is real aurora and where the faint horizon arcs
+  live. Measured against the live grid: 8/4 leaves the cap alone in both hemispheres and moves
+  the equatorward reach by one degree.
+- **Arcs get tapered ends and the whole band is blurred.** Above the seed only the active
+  sector of the oval survives, so a band stops dead at a meridian — a wall of light with a
+  vertical edge. The run closes to a point 4 degrees past its last meridian, and a gaussian
+  blur takes the outline off the whole shape. A run reaching the seam is left square, since it
+  carries on over the map's other edge.
 - **Mask, not clip-at-build.** A build-time clip is 7.5° of longitude stale after 30 minutes
   and visibly wrong to anyone who watches the terminator move. The mask costs one `<mask>`
   element and is correct for as long as the file is open.
@@ -71,6 +82,14 @@ The rebuild runs every 30 minutes, so live measurements plus a short forecast bo
   the space-map plan was written and answers now; it may well block the Actions runner.
 - **"Nobody" means nowhere on Earth**, not nowhere populated. The southern oval over an empty
   Antarctic ocean still counts as visible.
+- **The band's brightness fades across the skirt**, so the strong green sits where the glow
+  hangs overhead and the faint edge where it is only a light on someone's horizon. That needs
+  a gradient per band rather than the two fixed ones, since the skirt is a different share of
+  the band's height each run. Without it the map was brightest exactly where it was weakest.
+- **The ticker quotes the reach at midnight, and says so.** The southernmost point of the band
+  is in whatever sector local midnight is over: 48N on a Kp 0.7 night, which is real over
+  Alberta and nonsense read as "near the Netherlands". The Dutch line only appears when the
+  footprint actually covers the country and it is dark there.
 
 ## Open questions
 
