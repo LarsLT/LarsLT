@@ -71,7 +71,12 @@ func Document(sky Sky) string {
 		land(&b, sky.LandPath)
 	}
 	terminator(&b, sky.Terminator)
-	aurora(&b, sky.Aurora)
+	// No glow to hold on the dark side, no reason to carry a second copy of it.
+	masked := len(sky.Aurora) > 0 && sky.Terminator != nil && sky.Terminator.NightPath != ""
+	if masked {
+		nightMask(&b, sky.Terminator)
+	}
+	aurora(&b, sky.Aurora, masked)
 	eclipse(&b, sky.Eclipse)
 	station(&b, sky.Station)
 	ascent(&b, sky.Ascent)
@@ -91,18 +96,13 @@ func writeDefs(b *strings.Builder) {
 		`<stop offset="0" stop-color="%s"/><stop offset="0.5" stop-color="%s"/>`+
 		`<stop offset="1" stop-color="%s"/>`+
 		`</linearGradient>`+
-		`<linearGradient id="auroraN" x1="0" y1="0" x2="0" y2="1">`+
-		`<stop offset="0" stop-color="%s" stop-opacity="0.15"/>`+
-		`<stop offset="1" stop-color="%s" stop-opacity="0.6"/>`+
-		`</linearGradient>`+
-		`<linearGradient id="auroraS" x1="0" y1="1" x2="0" y2="0">`+
-		`<stop offset="0" stop-color="%s" stop-opacity="0.15"/>`+
-		`<stop offset="1" stop-color="%s" stop-opacity="0.6"/>`+
-		`</linearGradient>`+
 		`<clipPath id="mapclip"><rect x="0" y="0" width="%s" height="%s"/></clipPath>`+
+		// Aurora does not stop dead at the terminator, and neither should the
+		// mask that holds it there.
+		`<filter id="dusk" x="-5%%" y="-5%%" width="110%%" height="110%%">`+
+		`<feGaussianBlur stdDeviation="5"/></filter>`+
 		`</defs>`,
 		OceanPolar, Ocean, OceanPolar,
-		AuroraEdge, AuroraCore, AuroraEdge, AuroraCore,
 		Num(MapW), Num(MapH))
 }
 

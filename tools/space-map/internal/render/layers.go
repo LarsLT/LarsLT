@@ -86,23 +86,79 @@ func graticule(b *strings.Builder) {
 		eq, Num(MapW), eq, Graticule)
 }
 
+// nightMaskID names the mask that keeps the aurora on the dark side.
+const nightMaskID = "afterdark"
+
+// nightMask is the night side again, painted white, as a mask. It carries the
+// same sweep, so the glow and the darkness it needs never drift apart.
+func nightMask(b *strings.Builder, term *Terminator) {
+	if term == nil || term.NightPath == "" {
+		return
+	}
+	fmt.Fprintf(b, `<mask id="%s" maskUnits="userSpaceOnUse" x="0" y="0" width="%s" height="%s">`,
+		nightMaskID, Num(MapW), Num(MapH))
+	// Blurring the two copies together rather than one by one: separately, the
+	// soft edges would not meet and a seam would slide across the map.
+	fmt.Fprintf(b, `<g class="night" filter="url(#dusk)">`)
+	for _, shift := range []float64{0, MapW} {
+		fmt.Fprintf(b, `<path d="%s" transform="translate(%s,0)" fill="#fff"/>`, term.NightPath, Num(shift))
+	}
+	b.WriteString(`</g></mask>`)
+}
+
 // Aurora is one hemisphere's glow band, already projected and closed.
 type Aurora struct {
 	Path  string
 	North bool
+	// Skirt is how much of the band's height is ground the glow is only seen
+	// from, low on the horizon, rather than ground it stands over.
+	Skirt float64
 }
 
-func aurora(b *strings.Builder, bands []Aurora) {
-	for _, band := range bands {
+// aurora draws the bands through the night mask, so each shows only over the
+// part of the world dark enough to see it from.
+func aurora(b *strings.Builder, bands []Aurora, masked bool) {
+	mask := ""
+	if masked {
+		mask = fmt.Sprintf(` mask="url(#%s)"`, nightMaskID)
+	}
+	for i, band := range bands {
 		if band.Path == "" {
 			continue
 		}
-		gradient := "auroraN"
-		if !band.North {
-			gradient = "auroraS"
-		}
-		fmt.Fprintf(b, `<path class="glow" d="%s" fill="url(#%s)"/>`, band.Path, gradient)
+		gradient := fmt.Sprintf("aurora%d", i)
+		auroraGradient(b, gradient, band)
+		fmt.Fprintf(b, `<path class="glow" d="%s" fill="url(#%s)"%s/>`, band.Path, gradient, mask)
 	}
+}
+
+// auroraGradient puts the band's bright arc where the glow actually hangs and
+// fades it out across the skirt, which is only a glow on someone's horizon.
+func auroraGradient(b *strings.Builder, id string, band Aurora) {
+	arc := 1 - min(max(band.Skirt, 0.02), 0.98)
+	if !band.North {
+		arc = 1 - arc
+	}
+	stops := []struct {
+		at      float64
+		colour  string
+		opacity float64
+	}{
+		{0, AuroraEdge, 0.22},
+		{arc, AuroraCore, 0.7},
+		{1, AuroraCore, 0.04},
+	}
+	if !band.North {
+		stops[0], stops[2] = stops[2], stops[0]
+		stops[0].at, stops[2].at = 0, 1
+	}
+
+	fmt.Fprintf(b, `<linearGradient id="%s" x1="0" y1="0" x2="0" y2="1">`, id)
+	for _, s := range stops {
+		fmt.Fprintf(b, `<stop offset="%s" stop-color="%s" stop-opacity="%s"/>`,
+			Num2(s.at), s.colour, Num2(s.opacity))
+	}
+	b.WriteString(`</linearGradient>`)
 }
 
 // Eclipse is the shadow's track: a filled band between the two limits, and the

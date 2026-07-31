@@ -52,6 +52,25 @@ func GreenwichAngle(t time.Time) float64 {
 	return 280.46061837 + 360.98564736629*daysSinceJ2000(t)
 }
 
+// SunElevation is how far the sun stands above the horizon at a point, in
+// degrees. Below zero is night, the only time an aurora can be seen.
+func SunElevation(p, subsolar geo.Point) float64 {
+	cosZenith := math.Sin(p.Lat*deg)*math.Sin(subsolar.Lat*deg) +
+		math.Cos(p.Lat*deg)*math.Cos(subsolar.Lat*deg)*math.Cos((p.Lon-subsolar.Lon)*deg)
+	return math.Asin(math.Min(1, math.Max(-1, cosZenith))) * rad
+}
+
+// AnyDark reports whether any of these points is on the night side. A shape
+// that is entirely in daylight is one nobody on Earth can see.
+func AnyDark(track []geo.Point, subsolar geo.Point) bool {
+	for _, p := range track {
+		if SunElevation(p, subsolar) < 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // TerminatorLatitude gives the latitude of the day/night boundary at one
 // longitude, for a sun at the given declination and subsolar longitude.
 func TerminatorLatitude(lon, subsolarLon, declination float64) float64 {

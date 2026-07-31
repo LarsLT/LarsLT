@@ -61,17 +61,18 @@ func TestHigherKpReachesFurtherSouth(t *testing.T) {
 	}
 }
 
-// The whole point of the threshold is that a calm day draws nothing, so the
-// quiet oval must stay off and a real storm must come through.
-func TestStormingOnlyOnDisturbedDays(t *testing.T) {
-	for _, kp := range []float64{0, 2, 3.67, 4.9} {
-		if Storming(kp) {
-			t.Errorf("Kp %.2f counted as a storm", kp)
+// The band drawn is the ground people can see the glow from, so its equatorward
+// edge has to be the horizon line and not the oval's own edge.
+func TestOvalIsDrawnAsTheVisibleFootprint(t *testing.T) {
+	const kp = 6
+	ring := Oval(kp, true, 2)
+	for _, p := range ring[:len(ring)/2] {
+		want := GeographicLatAt(VisibleFrom(kp), p.Lon, true)
+		if math.Abs(p.Lat-want) > 1e-9 {
+			t.Fatalf("at lon %.0f the edge is %.2fN, want the %.2fN horizon line", p.Lon, p.Lat, want)
 		}
-	}
-	for _, kp := range []float64{5, 6.33, 9} {
-		if !Storming(kp) {
-			t.Errorf("Kp %.2f did not count as a storm", kp)
+		if overhead := GeographicLatAt(OvalBoundary(kp), p.Lon, true); p.Lat >= overhead {
+			t.Fatalf("at lon %.0f the edge is %.2fN, not south of the oval's own %.2fN", p.Lon, p.Lat, overhead)
 		}
 	}
 }

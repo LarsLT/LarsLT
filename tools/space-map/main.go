@@ -298,48 +298,157 @@ const ovalStepDeg = 2.0
 // Dutch profile, so "how far south" means how far south over the Netherlands.
 const homeLon = 5.0
 
-// addAurora draws both ovals from the current Kp and says in plain words how
-// far south the glow reaches.
+// auroraSide is one hemisphere's footprint: the ground the glow can be seen
+// from, and how far towards the equator that reaches over a given meridian.
+type auroraSide struct {
+	north bool
+	rings [][]geo.Point
+	reach func(lon float64) (float64, bool)
+}
+
+// addAurora draws the ground tonight's aurora can be seen from. The renderer
+// masks it to the dark side, so only the half anyone could look at shows.
 func addAurora(ctx context.Context, client *sources.Client, sky *render.Sky, now time.Time) {
-	kp, err := sources.Kp(ctx, client, now)
+	kp, kpErr := sources.Kp(ctx, client, now)
+	if kpErr != nil {
+		log.Printf("kp unavailable: %v", kpErr)
+	}
+
+	sides, err := auroraFootprint(ctx, client, now, kp, kpErr)
 	if err != nil {
 		log.Printf("aurora unavailable: %v", err)
 		return
 	}
 
-	// A quiet oval is not an aurora, it is where the oval always sits. Nothing
-	// is drawn or said about it, so the layer showing up means something.
-	if !astro.Storming(kp.Kp) {
-		log.Printf("Kp %.2f at %s, no storm, aurora left off",
-			kp.Kp, kp.At.Format(time.RFC3339))
+	// An oval sitting entirely in daylight is one nobody on Earth can see, which
+	// is most of a polar summer. Then the map says nothing about aurora at all.
+	subsolar := astro.SubsolarPoint(now)
+	reach, seen := 91.0, false
+	for _, side := range sides {
+		for _, ring := range side.rings {
+			if !astro.AnyDark(ring, subsolar) {
+				continue
+			}
+			sky.Aurora = append(sky.Aurora, render.Aurora{
+				Path:  render.PolygonPath(ring),
+				North: side.north,
+				Skirt: skirtFraction(ring),
+			})
+			if side.north {
+				reach = min(reach, darkestReach(ring, subsolar))
+				seen = true
+			}
+		}
+	}
+	if len(sky.Aurora) == 0 {
+		log.Print("the whole auroral oval is in daylight, nothing anyone can see")
 		return
 	}
 
-	for _, north := range []bool{true, false} {
-		ring := astro.Oval(kp.Kp, north, ovalStepDeg)
-		sky.Aurora = append(sky.Aurora, render.Aurora{
-			Path:  render.PolygonPath(ring),
-			North: north,
-		})
+	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.AuroraCore, Label: "aurora"})
+	sky.Ticker = append(sky.Ticker, auroraLine(kp, kpErr == nil, reach, seen, homeReach(sides, subsolar)))
+	over := "no band"
+	if lat, ok := sides[0].reach(homeLon); ok {
+		over = fmt.Sprintf("%.1fN", lat)
 	}
-
-	// The sentence describes the band that is drawn, not a wider estimate of who
-	// could glimpse it, so the words and the picture cannot disagree.
-	edge := astro.GeographicLatAt(astro.OvalBoundary(kp.Kp), homeLon, true)
-	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.AuroraCore, Label: "auroral oval"})
-	sky.Ticker = append(sky.Ticker, auroraLine(kp.Kp, edge))
-
-	log.Printf("Kp %.2f at %s, oval reaches %.1fN over the Netherlands",
-		kp.Kp, kp.At.Format(time.RFC3339), edge)
+	log.Printf("aurora down to %.1fN at midnight, %s over the home meridian, %d bands drawn",
+		reach, over, len(sky.Aurora))
 }
 
-// auroraLine turns a Kp number into the thing people actually want to know.
-func auroraLine(kp, edge float64) string {
-	where := fmt.Sprintf("reaches %.0fN", edge)
-	if edge <= dutchLat {
-		where = "overhead in the Netherlands"
+// auroraFootprint prefers the forecast grid, which has the oval's real lopsided
+// shape, and falls back to a circle drawn from the last Kp reading.
+func auroraFootprint(ctx context.Context, client *sources.Client, now time.Time,
+	kp sources.Geomagnetic, kpErr error,
+) ([]auroraSide, error) {
+	grid, err := sources.AuroraForecast(ctx, client, now)
+	if err == nil {
+		log.Printf("aurora forecast for %s", grid.Forecast.Format(time.RFC3339))
+		return []auroraSide{
+			{north: true, rings: grid.Footprint(true), reach: reachOf(grid, true)},
+			{north: false, rings: grid.Footprint(false), reach: reachOf(grid, false)},
+		}, nil
 	}
-	return fmt.Sprintf("Kp %.1f  ·  aurora %s", kp, where)
+	log.Printf("aurora forecast unavailable: %v", err)
+	if kpErr != nil {
+		return nil, kpErr
+	}
+
+	log.Printf("falling back to the Kp %.2f oval", kp.Kp)
+	var sides []auroraSide
+	for _, north := range []bool{true, false} {
+		sides = append(sides, auroraSide{
+			north: north,
+			rings: [][]geo.Point{astro.Oval(kp.Kp, north, ovalStepDeg)},
+			reach: func(lon float64) (float64, bool) {
+				return astro.GeographicLatAt(astro.VisibleFrom(kp.Kp), lon, north), true
+			},
+		})
+	}
+	return sides, nil
+}
+
+func reachOf(grid *astro.AuroraGrid, north bool) func(float64) (float64, bool) {
+	return func(lon float64) (float64, bool) { return grid.ReachAt(lon, north) }
+}
+
+// skirtFraction is how much of a band's height is ground the glow is only seen
+// from rather than stands over, which is where the renderer fades it out.
+func skirtFraction(ring []geo.Point) float64 {
+	low, high := 91.0, -91.0
+	for _, p := range ring {
+		low, high = min(low, p.Lat), max(high, p.Lat)
+	}
+	if high-low <= 0 {
+		return 0
+	}
+	return astro.HorizonSkirt / (high - low)
+}
+
+// darkestReach is how far towards the equator this band gets on the night side,
+// which is the part of it the mask lets through.
+func darkestReach(ring []geo.Point, subsolar geo.Point) float64 {
+	lowest := 91.0
+	for _, p := range ring {
+		if astro.SunElevation(p, subsolar) < 0 {
+			lowest = min(lowest, p.Lat)
+		}
+	}
+	return lowest
+}
+
+// homeReach answers the question a Dutch profile is really asking: could you
+// step outside tonight and see it. That needs the glow overhead and darkness.
+func homeReach(sides []auroraSide, subsolar geo.Point) bool {
+	home := geo.Point{Lon: homeLon, Lat: dutchLat}
+	if astro.SunElevation(home, subsolar) >= 0 {
+		return false
+	}
+	for _, side := range sides {
+		if !side.north {
+			continue
+		}
+		if lat, ok := side.reach(homeLon); ok && lat <= dutchLat {
+			return true
+		}
+	}
+	return false
+}
+
+// auroraLine turns the numbers into the thing people actually want to know.
+func auroraLine(kp sources.Geomagnetic, haveKp bool, reach float64, seen, home bool) string {
+	// The reach is the band's southernmost dark point, which sits in whatever
+	// sector midnight is over, so the words must not read as "here".
+	where := "over the far south"
+	switch {
+	case home:
+		where = "out over the Netherlands"
+	case seen:
+		where = fmt.Sprintf("down to %.0fN at midnight", reach)
+	}
+	if !haveKp {
+		return fmt.Sprintf("aurora %s", where)
+	}
+	return fmt.Sprintf("Kp %.1f  ·  aurora %s", kp.Kp, where)
 }
 
 // dutchLat is roughly the middle of the country, the line the sentence flips on.

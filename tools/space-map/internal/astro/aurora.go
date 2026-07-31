@@ -20,20 +20,10 @@ const (
 	// cap, which is dark.
 	ovalWidth = 7.0
 
-	// visibilityReach is how far south the glow is seen from. Aurora sits about
+	// HorizonSkirt is how far south the glow is seen from. Aurora sits about
 	// 100 km up, so it clears the horizon a few hundred kilometres away.
-	visibilityReach = 5.5
-
-	// stormKp is where a quiet oval becomes an event. NOAA calls Kp 5 a G1 minor
-	// storm, the point the glow reaches latitudes people live at.
-	stormKp = 5.0
+	HorizonSkirt = 5.5
 )
-
-// Storming reports whether there is an aurora to speak of. The oval itself is
-// always there, so without this every map carries a band that means nothing.
-func Storming(kp float64) bool {
-	return kp >= stormKp
-}
 
 // OvalBoundary is the geomagnetic latitude of the equatorward edge of the oval
 // at a given Kp.
@@ -44,27 +34,27 @@ func OvalBoundary(kp float64) float64 {
 // VisibleFrom is the lowest geomagnetic latitude that can see the glow at all,
 // low on the horizon.
 func VisibleFrom(kp float64) float64 {
-	return OvalBoundary(kp) - visibilityReach
+	return OvalBoundary(kp) - HorizonSkirt
 }
 
-// Oval traces the auroral band for one hemisphere: the equatorward edge west to
-// east, then the poleward edge back. Both enclose the pole, so it has no seam.
+// Oval traces the ground one hemisphere's aurora is seen from, from a Kp alone.
+// It is the fallback for when the forecast grid cannot be had.
 func Oval(kp float64, north bool, stepDeg float64) []geo.Point {
 	pole := geomagneticNorth
-	equatorward := OvalBoundary(kp)
+	seen := VisibleFrom(kp)
 	if !north {
 		pole = geo.Point{Lat: -pole.Lat, Lon: geo.WrapLon(pole.Lon + 180)}
-		equatorward = -equatorward
+		seen = -seen
 	}
 
 	var ring []geo.Point
 	for lon := -180.0; lon <= 180.0+stepDeg/2; lon += stepDeg {
-		ring = append(ring, geo.Point{Lon: lon, Lat: smallCircleLat(pole, equatorward, lon)})
+		ring = append(ring, geo.Point{Lon: lon, Lat: smallCircleLat(pole, seen, lon)})
 	}
 
-	poleward := equatorward + ovalWidth
+	poleward := seen + HorizonSkirt + ovalWidth
 	if !north {
-		poleward = equatorward - ovalWidth
+		poleward = seen - HorizonSkirt - ovalWidth
 	}
 	for lon := 180.0; lon >= -180.0-stepDeg/2; lon -= stepDeg {
 		ring = append(ring, geo.Point{Lon: lon, Lat: smallCircleLat(pole, poleward, lon)})

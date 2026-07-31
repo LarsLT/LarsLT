@@ -102,13 +102,43 @@ func TestTickerStopsAtMaxRows(t *testing.T) {
 
 func TestAuroraSkipsEmptyBands(t *testing.T) {
 	got := draw(func(b *strings.Builder) {
-		aurora(b, []Aurora{{Path: "", North: true}, {Path: "M0,0L1,1Z", North: false}})
+		aurora(b, []Aurora{{Path: "", North: true}, {Path: "M0,0L1,1Z", North: false}}, true)
 	})
 	if strings.Contains(got, `d=""`) {
 		t.Errorf("drew an empty path:\n%s", got)
 	}
 	if n := strings.Count(got, "<path"); n != 1 {
 		t.Errorf("drew %d paths, want 1:\n%s", n, got)
+	}
+}
+
+// Without a terminator there is no mask, and a path pointed at a mask that was
+// never written is a path the renderer drops entirely.
+func TestAuroraOnlyMasksWhenThereIsANight(t *testing.T) {
+	band := []Aurora{{Path: "M0,0L1,1Z", North: true}}
+	if got := draw(func(b *strings.Builder) { aurora(b, band, false) }); strings.Contains(got, "mask=") {
+		t.Errorf("masked without a night:\n%s", got)
+	}
+	got := draw(func(b *strings.Builder) { aurora(b, band, true) })
+	if !strings.Contains(got, `mask="url(#`+nightMaskID+`)"`) {
+		t.Errorf("drew the glow unmasked:\n%s", got)
+	}
+}
+
+// The mask has to sweep with the terminator it copies, or the glow drifts into
+// daylight as the map's own clock runs on.
+func TestNightMaskSweepsWithTheTerminator(t *testing.T) {
+	got := draw(func(b *strings.Builder) {
+		nightMask(b, &Terminator{NightPath: "M0,0L1,1Z"})
+	})
+	if !strings.Contains(got, `class="night"`) {
+		t.Errorf("mask does not carry the sweep:\n%s", got)
+	}
+	if n := strings.Count(got, "<path"); n != 2 {
+		t.Errorf("mask has %d copies, want the pair that loops seamlessly:\n%s", n, got)
+	}
+	if got := draw(func(b *strings.Builder) { nightMask(b, nil) }); got != "" {
+		t.Errorf("wrote a mask with no night:\n%s", got)
 	}
 }
 
