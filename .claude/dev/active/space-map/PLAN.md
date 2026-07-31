@@ -110,7 +110,22 @@ stack.
 Every fetch is wrapped: timeout, one retry, and on failure the layer drops out, a warning
 is logged, and the build still succeeds with a shorter legend. A broken upstream must never
 leave a broken image on the profile. `--offline` forces every source to fail, for testing.
-The last good Launch Library response is cached on the output branch as a 429 fallback.
+
+Launch Library needs more than that, because its anonymous ceiling is about fifteen
+requests an hour per address and a hosted runner shares one with everybody else on it — a
+429 there is the normal case, not the outage. So the feed has four rungs, tried in order:
+
+1. The live endpoint.
+2. `lldev.thespacedevs.com`, the same feed off a cache, with no such ceiling. It lags:
+   at the time of writing it carried 8 drawable flights against the live feed's 14.
+3. The last good response, kept in the workflow's `actions/cache` between runs.
+4. `internal/sources/seed/launches.json`, committed and embedded, for the run that finds
+   a cold cache. Dated by `seedTaken` rather than by its file, since a checkout rewrites
+   every mtime, and refused past the same 24 hours the cache is, because a committed feed
+   cannot refresh itself and a day-old T-0 has usually slipped.
+
+`--offline` skips all four, seed included: the flag exists to show the degraded map, and a
+seeded launch layer is exactly what would hide it.
 
 ## Steps
 
