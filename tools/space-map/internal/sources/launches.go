@@ -30,6 +30,7 @@ type Launch struct {
 	Site     string
 	At       time.Time
 	Vague    bool // T-0 is known only to the day or worse
+	Flying   bool // airborne right now, so the T-0 has gone stale
 	Position geo.Point
 }
 
@@ -101,10 +102,14 @@ func parseLaunches(body []byte, now time.Time) ([]Launch, error) {
 	var out []Launch
 	for _, r := range feed.Results {
 		at, err := time.Parse(time.RFC3339, r.Net)
-		if err != nil || at.Before(now) || at.After(cutoff) {
+		if err != nil || at.After(cutoff) {
 			continue
 		}
-		if !aheadOfUs(r.Status.Abbrev) {
+		flying := r.Status.Abbrev == statusInFlight
+		if at.Before(now) && !(flying && now.Sub(at) < ascentWindow) {
+			continue
+		}
+		if !worthDrawing(r.Status.Abbrev) {
 			continue
 		}
 		if r.Pad.Latitude == nil || r.Pad.Longitude == nil {
@@ -117,6 +122,7 @@ func parseLaunches(body []byte, now time.Time) ([]Launch, error) {
 			Site:     shortSite(r.Pad.Location.Name),
 			At:       at.UTC(),
 			Vague:    vagueT0(r.Precision.Abbrev) || r.Status.Abbrev == statusHold,
+			Flying:   flying,
 			Position: geo.Point{Lon: *r.Pad.Longitude, Lat: *r.Pad.Latitude},
 		})
 	}
@@ -129,11 +135,19 @@ func parseLaunches(body []byte, now time.Time) ([]Launch, error) {
 // when the clock stopped, so the day is all of it still worth printing.
 const statusHold = "Hold"
 
-// aheadOfUs says whether the flight is still to come. The upcoming feed carries
-// a launch through liftoff and holds on to it for hours afterwards.
-func aheadOfUs(status string) bool {
+// statusInFlight is a rocket that is climbing as the map is built. Its T-0 is
+// the plan it flew to, so by now the time is behind us and only the fact is left.
+const statusInFlight = "In Flight"
+
+// ascentWindow is how long a past T-0 may still be drawn on the In Flight status
+// alone. The bound is what stops a stale cache flying a rocket for a day.
+const ascentWindow = 30 * time.Minute
+
+// worthDrawing says whether the map should still show the flight. The upcoming
+// feed carries a launch through liftoff and holds on to it for hours afterwards.
+func worthDrawing(status string) bool {
 	switch status {
-	case "Success", "Failure", "Partial Failure", "In Flight":
+	case "Success", "Failure", "Partial Failure":
 		return false
 	}
 	// Anything upstream invents counts as pending: a launch drawn a little too

@@ -396,9 +396,12 @@ func tickerLine(l sources.Launch) string {
 }
 
 // launchWhen never writes a clock the feed did not give: a day-precision T-0
-// says the day and admits the rest.
+// says the day, and a rocket already climbing has no time left worth printing.
 func launchWhen(l sources.Launch) string {
-	if l.Vague {
+	switch {
+	case l.Flying:
+		return "lifting off"
+	case l.Vague:
 		return l.At.Format("02 Jan") + " (TBD)"
 	}
 	return l.At.Format("02 Jan 15:04Z")

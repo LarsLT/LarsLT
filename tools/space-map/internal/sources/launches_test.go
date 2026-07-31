@@ -127,16 +127,17 @@ func TestLaunchesDropsFlightsThatAlreadyWent(t *testing.T) {
 		status string
 		drawn  bool
 		vague  bool
+		flying bool
 	}{
-		{"Go", true, false},
-		{"TBC", true, false},
-		{"TBD", true, false},
-		{"Hold", true, true},
-		{"Success", false, false},
-		{"Failure", false, false},
-		{"Partial Failure", false, false},
-		{"In Flight", false, false},
-		{"Something New", true, false},
+		{"Go", true, false, false},
+		{"TBC", true, false, false},
+		{"TBD", true, false, false},
+		{"Hold", true, true, false},
+		{"Success", false, false, false},
+		{"Failure", false, false, false},
+		{"Partial Failure", false, false, false},
+		{"In Flight", true, false, true},
+		{"Something New", true, false, false},
 	} {
 		body := feedWithStatus(tc.status)
 		launches, err := parseLaunches(body, feedNow)
@@ -147,8 +148,43 @@ func TestLaunchesDropsFlightsThatAlreadyWent(t *testing.T) {
 			t.Errorf("%s: drawn = %v, want %v", tc.status, drawn, tc.drawn)
 			continue
 		}
-		if tc.drawn && launches[0].Vague != tc.vague {
+		if !tc.drawn {
+			continue
+		}
+		if launches[0].Vague != tc.vague {
 			t.Errorf("%s: vague = %v, want %v", tc.status, launches[0].Vague, tc.vague)
+		}
+		if launches[0].Flying != tc.flying {
+			t.Errorf("%s: flying = %v, want %v", tc.status, launches[0].Flying, tc.flying)
+		}
+	}
+}
+
+// TestLaunchesDrawsARocketThatIsAirborne pins the one case a past T-0 is not a
+// reason to drop the flight: the feed says it is climbing right now.
+func TestLaunchesDrawsARocketThatIsAirborne(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status string
+		net    time.Duration
+		drawn  bool
+	}{
+		{"just lifted off", "In Flight", -2 * time.Minute, true},
+		{"still inside the ascent window", "In Flight", -(ascentWindow - time.Minute), true},
+		{"stale beyond the ascent window", "In Flight", -(ascentWindow + time.Minute), false},
+		{"a past T-0 with no such status", "Go", -2 * time.Minute, false},
+	} {
+		body := feedAt(tc.status, feedNow.Add(tc.net))
+		launches, err := parseLaunches(body, feedNow)
+		if err != nil {
+			t.Fatalf("%s: parse: %v", tc.name, err)
+		}
+		if drawn := len(launches) == 1; drawn != tc.drawn {
+			t.Errorf("%s: drawn = %v, want %v", tc.name, drawn, tc.drawn)
+			continue
+		}
+		if tc.drawn && !launches[0].Flying {
+			t.Errorf("%s: flying = false, want true", tc.name)
 		}
 	}
 }
@@ -156,13 +192,17 @@ func TestLaunchesDropsFlightsThatAlreadyWent(t *testing.T) {
 // feedWithStatus is one minute-precise flight, well inside the window, whose
 // only interesting property is the status upstream put on it.
 func feedWithStatus(status string) []byte {
+	return feedAt(status, feedNow.Add(48*time.Hour))
+}
+
+func feedAt(status string, net time.Time) []byte {
 	return fmt.Appendf(nil, `{"results":[{
 		"name":"Rocket | Payload","net":%q,
 		"net_precision":{"abbrev":"MIN"},"status":{"abbrev":%q},
 		"launch_service_provider":{"abbrev":"ACME"},
 		"pad":{"name":"LC-1","latitude":28.5,"longitude":-80.5,
 		"location":{"name":"Cape Canaveral SFS, FL, USA"}}}]}`,
-		feedNow.Add(48*time.Hour).Format(time.RFC3339), status)
+		net.Format(time.RFC3339), status)
 }
 
 func names(launches []Launch) []string {
