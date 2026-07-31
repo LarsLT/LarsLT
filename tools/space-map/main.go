@@ -302,7 +302,7 @@ const homeLon = 5.0
 // from, and how far towards the equator that reaches over a given meridian.
 type auroraSide struct {
 	north bool
-	rings [][]geo.Point
+	bands []astro.Band
 	reach func(lon float64) (float64, bool)
 }
 
@@ -325,17 +325,18 @@ func addAurora(ctx context.Context, client *sources.Client, sky *render.Sky, now
 	subsolar := astro.SubsolarPoint(now)
 	reach, seen := 91.0, false
 	for _, side := range sides {
-		for _, ring := range side.rings {
-			if !astro.AnyDark(ring, subsolar) {
+		for _, band := range side.bands {
+			if !astro.AnyDark(band.Ring, subsolar) {
 				continue
 			}
 			sky.Aurora = append(sky.Aurora, render.Aurora{
-				Path:  render.PolygonPath(ring),
+				Path:  render.PolygonPath(band.Ring),
 				North: side.north,
-				Skirt: skirtFraction(ring),
+				Skirt: skirtFraction(band.Ring),
+				Fade:  fadeAlong(band.Strength),
 			})
 			if side.north {
-				reach = min(reach, darkestReach(ring, subsolar))
+				reach = min(reach, darkestReach(band.Ring, subsolar))
 				seen = true
 			}
 		}
@@ -364,8 +365,8 @@ func auroraFootprint(ctx context.Context, client *sources.Client, now time.Time,
 	if err == nil {
 		log.Printf("aurora forecast for %s", grid.Forecast.Format(time.RFC3339))
 		return []auroraSide{
-			{north: true, rings: grid.Footprint(true), reach: reachOf(grid, true)},
-			{north: false, rings: grid.Footprint(false), reach: reachOf(grid, false)},
+			{north: true, bands: grid.Footprint(true), reach: reachOf(grid, true)},
+			{north: false, bands: grid.Footprint(false), reach: reachOf(grid, false)},
 		}, nil
 	}
 	log.Printf("aurora forecast unavailable: %v", err)
@@ -378,7 +379,7 @@ func auroraFootprint(ctx context.Context, client *sources.Client, now time.Time,
 	for _, north := range []bool{true, false} {
 		sides = append(sides, auroraSide{
 			north: north,
-			rings: [][]geo.Point{astro.Oval(kp.Kp, north, ovalStepDeg)},
+			bands: []astro.Band{{Ring: astro.Oval(kp.Kp, north, ovalStepDeg)}},
 			reach: func(lon float64) (float64, bool) {
 				return astro.GeographicLatAt(astro.VisibleFrom(kp.Kp), lon, north), true
 			},
@@ -389,6 +390,20 @@ func auroraFootprint(ctx context.Context, client *sources.Client, now time.Time,
 
 func reachOf(grid *astro.AuroraGrid, north bool) func(float64) (float64, bool) {
 	return func(lon float64) (float64, bool) { return grid.ReachAt(lon, north) }
+}
+
+// fadeAlong thins the strength profile out for the renderer: every few degrees
+// carries the shape, and a stop per meridian is 360 of them.
+func fadeAlong(strength []astro.Strength) []render.Fade {
+	const everyDeg = 4
+	var fade []render.Fade
+	for i, s := range strength {
+		if i%everyDeg != 0 && i != len(strength)-1 {
+			continue
+		}
+		fade = append(fade, render.Fade{Lon: s.Lon, Value: s.Value})
+	}
+	return fade
 }
 
 // skirtFraction is how much of a band's height is ground the glow is only seen

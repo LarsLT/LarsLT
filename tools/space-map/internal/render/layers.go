@@ -3,6 +3,8 @@ package render
 import (
 	"fmt"
 	"strings"
+
+	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
 )
 
 // LegendItem is one coloured chip under the map.
@@ -106,21 +108,32 @@ func nightMask(b *strings.Builder, term *Terminator) {
 	b.WriteString(`</g></mask>`)
 }
 
+// Fade is how strong the glow is over one meridian, from 0 to 1.
+type Fade struct {
+	Lon   float64
+	Value float64
+}
+
 // Aurora is one hemisphere's glow band, already projected and closed.
 type Aurora struct {
 	Path  string
 	North bool
+	// Fade is the strength profile along the band, west to east. Empty leaves it
+	// evenly lit, which is what the Kp fallback knows.
+	Fade []Fade
 	// Skirt is how much of the band's height is ground the glow is only seen
 	// from, low on the horizon, rather than ground it stands over.
 	Skirt float64
 }
 
-// aurora draws the bands through the night mask, so each shows only over the
-// part of the world dark enough to see it from.
+// aurora draws the bands inside the night mask, so they show only over the part
+// of the world dark enough to see them from.
 func aurora(b *strings.Builder, bands []Aurora, masked bool) {
-	mask := ""
+	if len(bands) == 0 {
+		return
+	}
 	if masked {
-		mask = fmt.Sprintf(` mask="url(#%s)"`, nightMaskID)
+		fmt.Fprintf(b, `<g mask="url(#%s)">`, nightMaskID)
 	}
 	for i, band := range bands {
 		if band.Path == "" {
@@ -128,9 +141,38 @@ func aurora(b *strings.Builder, bands []Aurora, masked bool) {
 		}
 		gradient := fmt.Sprintf("aurora%d", i)
 		auroraGradient(b, gradient, band)
+
+		fade := ""
+		if len(band.Fade) > 1 {
+			id := fmt.Sprintf("alongoval%d", i)
+			auroraFade(b, id, band.Fade)
+			fade = fmt.Sprintf(` mask="url(#%s)"`, id)
+		}
 		fmt.Fprintf(b, `<path class="glow" d="%s" fill="url(#%s)" filter="url(#haze)"%s/>`,
-			band.Path, gradient, mask)
+			band.Path, gradient, fade)
 	}
+	if masked {
+		b.WriteString(`</g>`)
+	}
+}
+
+// auroraFade masks a band along its length. The oval is brightest around
+// midnight, and without this an arc switches on at the meridian it was cut at.
+func auroraFade(b *strings.Builder, id string, fade []Fade) {
+	x1, x2 := geo.X(fade[0].Lon), geo.X(fade[len(fade)-1].Lon)
+	if x2-x1 < 1 {
+		return
+	}
+	fmt.Fprintf(b, `<linearGradient id="%sramp" gradientUnits="userSpaceOnUse"`+
+		` x1="%s" y1="0" x2="%s" y2="0">`, id, Num(x1), Num(x2))
+	for _, f := range fade {
+		fmt.Fprintf(b, `<stop offset="%s" stop-color="#fff" stop-opacity="%s"/>`,
+			Num2((geo.X(f.Lon)-x1)/(x2-x1)), Num2(f.Value))
+	}
+	b.WriteString(`</linearGradient>`)
+	fmt.Fprintf(b, `<mask id="%s" maskUnits="userSpaceOnUse" x="0" y="0" width="%s" height="%s">`+
+		`<rect x="0" y="0" width="%s" height="%s" fill="url(#%sramp)"/></mask>`,
+		id, Num(MapW), Num(MapH), Num(MapW), Num(MapH), id)
 }
 
 // auroraGradient puts the band's bright arc where the glow actually hangs and

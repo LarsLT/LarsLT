@@ -61,7 +61,7 @@ func TestFootprintReachesPastTheOvalItself(t *testing.T) {
 		t.Fatalf("a band on every meridian came out as %d rings, want one closed one", len(rings))
 	}
 	lowest, highest := 91.0, -91.0
-	for _, p := range rings[0] {
+	for _, p := range rings[0].Ring {
 		lowest = math.Min(lowest, p.Lat)
 		highest = math.Max(highest, p.Lat)
 	}
@@ -81,7 +81,7 @@ func TestFootprintReachesPastTheOvalItself(t *testing.T) {
 func TestFootprintClosesAcrossTheSeam(t *testing.T) {
 	ring := oval(t, 65, 72, nil).Footprint(true)[0]
 	west, east := 181.0, -181.0
-	for _, p := range ring {
+	for _, p := range ring.Ring {
 		west = math.Min(west, p.Lon)
 		east = math.Max(east, p.Lon)
 	}
@@ -101,7 +101,7 @@ func TestFootprintBreaksWhereThereIsNoAurora(t *testing.T) {
 	if len(rings) != 1 {
 		t.Fatalf("got %d rings, want the one stretch that has aurora", len(rings))
 	}
-	for _, p := range rings[0] {
+	for _, p := range rings[0].Ring {
 		if p.Lon < 10-taperDeg || p.Lon > 99+taperDeg {
 			t.Fatalf("ring runs out to lon %.0f, past the taper on the stretch with aurora", p.Lon)
 		}
@@ -109,12 +109,12 @@ func TestFootprintBreaksWhereThereIsNoAurora(t *testing.T) {
 
 	// The arc has to close to a point rather than end at a wall of light.
 	ends := map[float64]int{}
-	for _, p := range rings[0] {
+	for _, p := range rings[0].Ring {
 		ends[p.Lon]++
 	}
 	for _, lon := range []float64{10 - taperDeg, 99 + taperDeg} {
 		var lats []float64
-		for _, p := range rings[0] {
+		for _, p := range rings[0].Ring {
 			if p.Lon == lon {
 				lats = append(lats, p.Lat)
 			}
@@ -136,7 +136,7 @@ func TestSouthernFootprintHangsTowardsTheEquator(t *testing.T) {
 		t.Fatalf("got %d rings, want one", len(rings))
 	}
 	highest := -91.0
-	for _, p := range rings[0] {
+	for _, p := range rings[0].Ring {
 		highest = math.Max(highest, p.Lat)
 	}
 	if want := -65 + HorizonSkirt; math.Abs(highest-want) > 1e-9 {
@@ -191,10 +191,54 @@ func TestWeakPolarCapIsNotAnOval(t *testing.T) {
 	if len(rings) != 1 {
 		t.Fatalf("got %d bands, want the one oval", len(rings))
 	}
-	for _, p := range rings[0] {
+	for _, p := range rings[0].Ring {
 		if p.Lat <= -87 {
 			t.Fatalf("band runs to %.0f, into the cap", p.Lat)
 		}
+	}
+}
+
+// The oval is strongest around midnight and peters out along itself, so a band
+// carries its own strength instead of switching on at the meridian it was cut at.
+func TestBandFadesAlongItsLength(t *testing.T) {
+	g := NewAuroraGrid(time.Now())
+	for lon := range gridLons {
+		for lat := -90; lat <= 90; lat++ {
+			p := 0.0
+			if lat >= 65 && lat <= 72 {
+				// Strong at the seam, tailing off eastwards.
+				p = max(fullProbability-float64(lon)/6, 0)
+			}
+			if err := g.Set(lon, lat, p); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	bands := g.Footprint(true)
+	if len(bands) == 0 {
+		t.Fatal("no band at all")
+	}
+	var strong, weak float64
+	for _, band := range bands {
+		for _, s := range band.Strength {
+			if s.Value <= 0 {
+				continue
+			}
+			if strong == 0 {
+				strong, weak = s.Value, s.Value
+			}
+			strong, weak = math.Max(strong, s.Value), math.Min(weak, s.Value)
+		}
+	}
+	if strong <= weak {
+		t.Errorf("every meridian came out at strength %.2f, want the oval to fade along itself", strong)
+	}
+	if weak < faintest-1e-9 {
+		t.Errorf("weakest meridian is %.2f, below the %.2f a drawn band starts at", weak, faintest)
+	}
+	if strong > 1 {
+		t.Errorf("strongest meridian is %.2f, over full strength", strong)
 	}
 }
 

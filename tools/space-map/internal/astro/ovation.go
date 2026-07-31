@@ -29,6 +29,14 @@ const (
 	// taperDeg is how far past its last meridian a band is drawn closing to a
 	// point. An arc fades out along the oval, it does not end at a wall.
 	taperDeg = 4.0
+
+	// fullProbability is the reading a band is drawn at full strength for. The
+	// oval is brightest around midnight and fades along itself towards noon.
+	fullProbability = 20.0
+
+	// faintest is what a band just past the seed is drawn at, so an arc fades in
+	// rather than switching on at a meridian the sky knows nothing about.
+	faintest = 0.18
 )
 
 // AuroraGrid is NOAA's OVATION output: the chance of aurora overhead at every
@@ -78,9 +86,22 @@ func (g *AuroraGrid) Complete() error {
 	return nil
 }
 
+// Band is one arc of the oval: the outline to fill, and how brightly to fill it
+// along its length, since the oval is nowhere near even.
+type Band struct {
+	Ring     []geo.Point
+	Strength []Strength
+}
+
+// Strength is how strong the glow is over one meridian, from 0 to 1.
+type Strength struct {
+	Lon   float64
+	Value float64
+}
+
 // Footprint traces the ground one hemisphere's aurora is seen from: the oval
 // plus its horizon skirt, in one run per unbroken stretch of meridians.
-func (g *AuroraGrid) Footprint(north bool) [][]geo.Point {
+func (g *AuroraGrid) Footprint(north bool) []Band {
 	edges := make([]auroraEdge, 0, gridLons)
 	for i := range gridLons {
 		edges = append(edges, g.edgeAt(float64(i)-180, north))
@@ -101,6 +122,7 @@ type auroraEdge struct {
 	lon     float64
 	seen    float64
 	pole    float64
+	peak    float64
 	present bool
 }
 
@@ -138,12 +160,18 @@ func (g *AuroraGrid) edgeAt(lon float64, north bool) auroraEdge {
 	if seen*float64(dir) < 0 {
 		seen = 0
 	}
-	return auroraEdge{lon: lon, seen: seen, pole: float64(high), present: true}
+	return auroraEdge{
+		lon:     lon,
+		seen:    seen,
+		pole:    float64(high),
+		peak:    g.prob[col][peak+90],
+		present: true,
+	}
 }
 
 // ringsFrom joins the meridian slices into rings. A band reaching every
 // meridian repeats its first slice past the seam; a partial one is cut there.
-func ringsFrom(edges []auroraEdge) [][]geo.Point {
+func ringsFrom(edges []auroraEdge) []Band {
 	full := true
 	for _, e := range edges {
 		if !e.present {
@@ -154,10 +182,10 @@ func ringsFrom(edges []auroraEdge) [][]geo.Point {
 	if full {
 		wrap := edges[0]
 		wrap.lon += 360
-		return [][]geo.Point{ringOf(append(edges, wrap))}
+		return []Band{bandOf(append(edges, wrap))}
 	}
 
-	var rings [][]geo.Point
+	var bands []Band
 	var run []auroraEdge
 	for _, e := range edges {
 		if e.present {
@@ -165,14 +193,33 @@ func ringsFrom(edges []auroraEdge) [][]geo.Point {
 			continue
 		}
 		if len(run) >= minRun {
-			rings = append(rings, ringOf(taperEnds(run)))
+			bands = append(bands, bandOf(taperEnds(run)))
 		}
 		run = nil
 	}
 	if len(run) >= minRun {
-		rings = append(rings, ringOf(taperEnds(run)))
+		bands = append(bands, bandOf(taperEnds(run)))
 	}
-	return rings
+	return bands
+}
+
+// bandOf is the outline plus the strength profile the renderer fades it along.
+func bandOf(run []auroraEdge) Band {
+	strength := make([]Strength, 0, len(run))
+	for _, e := range run {
+		strength = append(strength, Strength{Lon: e.lon, Value: brightness(e.peak)})
+	}
+	return Band{Ring: ringOf(run), Strength: strength}
+}
+
+// brightness maps a probability onto how solidly the band is drawn. Below the
+// seed nothing is drawn at all, so the scale starts just above nothing.
+func brightness(peak float64) float64 {
+	if peak <= 0 {
+		return 0
+	}
+	scaled := faintest + (1-faintest)*(peak-seedProbability)/(fullProbability-seedProbability)
+	return math.Min(1, math.Max(faintest, scaled))
 }
 
 // taperEnds closes an arc to a point at each end. A run reaching the seam is
@@ -188,7 +235,8 @@ func taperEnds(run []auroraEdge) []auroraEdge {
 	return run
 }
 
-// collapse is a meridian's slice with no height left, the point an arc ends at.
+// collapse is a meridian's slice with no height and no glow left, the point an
+// arc ends at.
 func collapse(e auroraEdge, lon float64) auroraEdge {
 	mid := (e.seen + e.pole) / 2
 	return auroraEdge{lon: lon, seen: mid, pole: mid, present: true}
