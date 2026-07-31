@@ -2,6 +2,7 @@ package sources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -100,6 +101,74 @@ func TestLaunchesDropsRecordsItCannotPlace(t *testing.T) {
 		case l.Position == (geo.Point{}):
 			t.Errorf("%q was placed at the null island", l.Name)
 		}
+	}
+}
+
+// TestSeedCarriesADrawableLayer is what the committed feed is for: a cold cache
+// with both endpoints refusing still leaves pads on the map.
+func TestSeedCarriesADrawableLayer(t *testing.T) {
+	taken, err := time.Parse(time.RFC3339, seedTaken)
+	if err != nil {
+		t.Fatalf("seedTaken: %v", err)
+	}
+
+	launches, err := launchesFrom(nil, errors.New("http 429"), taken.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("the seed did not stand in: %v", err)
+	}
+	if len(launches) == 0 {
+		t.Fatal("the seed parsed to no launches at all")
+	}
+	for _, l := range launches {
+		if l.Position == (geo.Point{}) {
+			t.Errorf("%q was seeded at the null island", l.Name)
+		}
+	}
+	if pads := Pads(launches); len(pads) == 0 {
+		t.Error("the seed grouped into no pads")
+	}
+}
+
+// TestSeedExpires holds the seed to the cache's rule. A committed feed cannot
+// refresh itself, so the only honest thing it can do is stop being believed.
+func TestSeedExpires(t *testing.T) {
+	taken, err := time.Parse(time.RFC3339, seedTaken)
+	if err != nil {
+		t.Fatalf("seedTaken: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name string
+		age  time.Duration
+		want bool
+	}{
+		{"inside the day these T-0s hold for", launchMaxAge - time.Hour, true},
+		{"a day on, too many have slipped", launchMaxAge + time.Hour, false},
+	} {
+		_, err := launchSeed(taken.Add(tc.age))
+		if got := err == nil; got != tc.want {
+			t.Errorf("%s: seed served = %v, want %v (err %v)", tc.name, got, tc.want, err)
+		}
+	}
+}
+
+// TestOfflineDrawsNoSeed keeps the flag honest: -offline asks for the degraded
+// map, and a seeded launch layer is exactly what would hide the degradation.
+func TestOfflineDrawsNoSeed(t *testing.T) {
+	if _, err := launchesFrom(nil, ErrOffline, feedNow); !errors.Is(err, ErrOffline) {
+		t.Fatalf("got %v, want ErrOffline", err)
+	}
+}
+
+// TestSeedIsNotReachedWhenAFeedArrived guards the order: a live body wins even
+// on the day the seed would also parse.
+func TestSeedIsNotReachedWhenAFeedArrived(t *testing.T) {
+	launches, err := launchesFrom(readTestdata(t, "launches.json"), nil, feedNow)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(launches) != 5 {
+		t.Fatalf("parsed %d launches, want the captured feed's 5: %v", len(launches), names(launches))
 	}
 }
 

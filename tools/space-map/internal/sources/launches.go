@@ -3,7 +3,9 @@ package sources
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -14,6 +16,10 @@ import (
 // launchesURL asks for enough launches to cover a month. The upcoming feed is
 // ordered by T-0, so a slice off the front is all we need.
 const launchesURL = "https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=60"
+
+// launchesMirrorURL is Launch Library's development endpoint: the same feed off
+// a cache, without the hourly ceiling a shared runner address has already spent.
+const launchesMirrorURL = "https://lldev.thespacedevs.com/2.3.0/launches/upcoming/?limit=60"
 
 // LaunchWindow is how far ahead a launch still counts as upcoming.
 const LaunchWindow = 30 * 24 * time.Hour
@@ -70,12 +76,29 @@ type launchFeed struct {
 func Launches(ctx context.Context, c *Client, now time.Time) ([]Launch, error) {
 	body, err := c.Fetch(ctx, Request{
 		URL:      launchesURL,
+		Mirror:   launchesMirrorURL,
 		CacheKey: "launches",
 		MaxAge:   launchMaxAge,
 		Valid:    validLaunches,
 	})
+	return launchesFrom(body, err, now)
+}
+
+// launchesFrom falls back to the committed seed when every source refused, so a
+// run that finds a cold cache still draws the layer.
+func launchesFrom(body []byte, err error, now time.Time) ([]Launch, error) {
 	if err != nil {
-		return nil, err
+		// Offline is the flag asking for the degraded map, and a seed drawn anyway
+		// is the one thing that would hide it.
+		if errors.Is(err, ErrOffline) {
+			return nil, err
+		}
+		seed, seedErr := launchSeed(now)
+		if seedErr != nil {
+			return nil, fmt.Errorf("%w, and %v", err, seedErr)
+		}
+		log.Printf("launches failed (%v), falling back to the committed seed", err)
+		body = seed
 	}
 	return parseLaunches(body, now)
 }
