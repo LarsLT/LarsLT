@@ -164,8 +164,8 @@ func station(b *strings.Builder, s *Station) {
 // Ascent is the nominal track off the next pad: where the rocket would fly if
 // everything went perfectly. A simulation, never a live position.
 type Ascent struct {
-	// Track is one path per crossing of the map's edge, and Ride is the run long
-	// enough to carry the dot.
+	// Track is one path per crossing of the map's edge, and Ride is the run the
+	// dot climbs once, set only while the rocket is actually airborne.
 	Track   []string
 	Ride    string
 	Seconds int

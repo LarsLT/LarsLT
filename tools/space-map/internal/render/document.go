@@ -128,10 +128,10 @@ func writeStyle(b *strings.Builder) {
 		`.station{offset-rotate:0deg;animation-name:ride;animation-timing-function:linear;`+
 		`animation-iteration-count:infinite}`+
 		`@keyframes ride{from{offset-distance:0%%}to{offset-distance:100%%}}`+
-		// The ascent accelerates like the real thing and fades at both ends, so
-		// it reads as a projection rather than a rocket anyone is tracking.
+		// One climb per load, not a loop: a launch happens once, and a dot going
+		// round forever would claim a rocket leaves every few seconds.
 		`.ascent{offset-rotate:0deg;animation-name:ascent;animation-timing-function:ease-in;`+
-		`animation-iteration-count:infinite}`+
+		`animation-iteration-count:1;animation-fill-mode:forwards}`+
 		`@keyframes ascent{0%%{offset-distance:0%%;opacity:0}15%%,85%%{opacity:.9}`+
 		`100%%{offset-distance:100%%;opacity:0}}`+
 		`</style>`,

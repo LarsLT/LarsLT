@@ -382,11 +382,11 @@ func addLaunches(ctx context.Context, client *sources.Client, sky *render.Sky, n
 const tickerLaunches = 1
 
 // The ascent arc: roughly the ground distance a rocket covers before insertion,
-// sampled fine enough to stay smooth, and looped in seconds.
+// sampled fine enough to stay smooth, and climbed once in seconds.
 const (
 	ascentArcDeg  = 25
 	ascentStepDeg = 1
-	ascentLoop    = 7
+	ascentClimb   = 7
 )
 
 // nominalInclination is the aim inferred from the orbit class, since the feed
@@ -453,7 +453,7 @@ func addAscent(sky *render.Sky, l sources.Launch, now time.Time) {
 		return
 	}
 
-	sky.Ascent = &render.Ascent{Track: track, Seconds: ascentLoop}
+	sky.Ascent = &render.Ascent{Track: track, Seconds: ascentClimb}
 	label := "nominal ascent, today"
 	if l.Flying {
 		sky.Ascent.Ride = longest(track)

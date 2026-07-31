@@ -104,6 +104,24 @@ func TestDocumentFull(t *testing.T) {
 	checkDocument(t, doc)
 }
 
+// TestAscentClimbsOnce guards the one animation that must not loop. A launch
+// happens once, and a repeating dot would claim one leaves every few seconds.
+func TestAscentClimbsOnce(t *testing.T) {
+	doc := Document(Sky{Ascent: &Ascent{Track: []string{"M0,0L120,90"}, Ride: "M0,0L120,90", Seconds: 7}})
+	checkDocument(t, doc)
+
+	rule := regexp.MustCompile(`\.ascent\{[^}]*\}`).FindString(doc)
+	if rule == "" {
+		t.Fatal("no .ascent rule in the stylesheet")
+	}
+	if !strings.Contains(rule, "animation-iteration-count:1") {
+		t.Errorf("the ascent dot does not run exactly once: %s", rule)
+	}
+	if strings.Contains(rule, "infinite") {
+		t.Errorf("the ascent dot loops forever: %s", rule)
+	}
+}
+
 // TestDocumentSurvivesHostileFeedText is the whole point of the escaping: a
 // mission name is upstream text, and it lands in three different places.
 func TestDocumentSurvivesHostileFeedText(t *testing.T) {
