@@ -20,7 +20,8 @@ import (
 	"github.com/LarsLT/LarsLT/tools/space-map/internal/render"
 )
 
-const sourceURL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/" +
+// Pinned to a tag, not master, so a rerun reproduces the committed basemap.
+const sourceURL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/" +
 	"geojson/ne_110m_admin_0_countries.geojson"
 
 // Degrees of lat/lon that may be collapsed away. At 1000px wide one degree of
