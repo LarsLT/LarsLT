@@ -67,6 +67,13 @@ The rebuild runs every 30 minutes, so live measurements plus a short forecast bo
   contour then keeps the diffuse edge, which is real aurora and where the faint horizon arcs
   live. Measured against the live grid: 8/4 leaves the cap alone in both hemispheres and moves
   the equatorward reach by one degree.
+- **A band carries its own strength along its length.** The oval is nowhere near even: it is
+  brightest at magnetic midnight and weakest towards noon, and on a quiet night only the
+  midnight third clears the seed at all. Drawn as a binary, one meridian reading 9% got a
+  full-strength band and its neighbour at 6% got nothing, which reads as aurora arbitrarily
+  switching off over eastern Canada. Each band now carries a strength profile, emitted as a
+  horizontal gradient mask, so an arc fades in and out the way the oval does. The night mask
+  moved to a group around all the bands, since a path can only carry one mask.
 - **Arcs get tapered ends and the whole band is blurred.** Above the seed only the active
   sector of the oval survives, so a band stops dead at a meridian — a wall of light with a
   vertical edge. The run closes to a point 4 degrees past its last meridian, and a gaussian
