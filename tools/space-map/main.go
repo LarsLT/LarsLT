@@ -364,15 +364,15 @@ func addLaunches(ctx context.Context, client *sources.Client, sky *render.Sky, n
 		})
 	}
 
-	addAscent(sky, pads[0].Next)
-
 	for _, l := range launches[:min(len(launches), tickerLaunches)] {
 		sky.Ticker = append(sky.Ticker, tickerLine(l))
 	}
 	sky.Legend = append(sky.Legend,
-		render.LegendItem{Colour: render.LaunchNext, Label: "next launch, nominal ascent"},
+		render.LegendItem{Colour: render.LaunchNext, Label: "next launch"},
 		render.LegendItem{Colour: render.Launch, Label: "launch pad, next 30 days"},
 	)
+
+	addAscent(sky, pads[0].Next, now)
 
 	log.Printf("%d launches from %d pads, next %s", len(launches), len(pads), launches[0].At.Format(time.RFC3339))
 }
@@ -401,11 +401,43 @@ var nominalInclination = map[string]float64{
 // never reaches orbit, and the trajectories that leave it.
 var noAscent = map[string]bool{"Sub": true, "Mars": true, "L2": true}
 
-// addAscent draws where the next flight would go if everything went perfectly.
-// It is a simulation and loops forever, so it stays thin and quiet.
-func addAscent(sky *render.Sky, l sources.Launch) {
+// rangeCorridor is the span of azimuths a spaceport may fly, a safety decision
+// no formula recovers. A range not listed here keeps what the formula said.
+var rangeCorridor = map[string]astro.Corridor{
+	"Vandenberg SFB":          {From: 140, To: 201},
+	"Cape Canaveral SFS":      {From: 37, To: 112},
+	"Kennedy Space Center":    {From: 37, To: 112},
+	"Wallops Flight Facility": {From: 90, To: 160},
+	"Guiana Space Centre":     {From: 349, To: 93},
+}
+
+// aim is the bearing the next flight leaves on. Both roots of the azimuth reach
+// the orbit, so where a range is known the one it permits wins.
+func aim(l sources.Launch, inclination float64) float64 {
+	azimuth := astro.LaunchAzimuth(l.Position.Lat, inclination)
+
+	corridor, known := rangeCorridor[l.Site]
+	if !known || corridor.Contains(azimuth) {
+		return azimuth
+	}
+	if mirror := astro.MirrorAzimuth(azimuth); corridor.Contains(mirror) {
+		return mirror
+	}
+
+	// Neither root is allowed, which is the minimum-energy case at a range that
+	// cannot fly it. The closest permitted heading is the honest answer.
+	return corridor.Nearest(azimuth)
+}
+
+// addAscent draws where the next flight would go if everything went perfectly:
+// on the day of the launch, and moving only once the feed says it has left.
+func addAscent(sky *render.Sky, l sources.Launch, now time.Time) {
 	if noAscent[l.Orbit] {
 		log.Printf("no ascent arc for a %s mission", l.Orbit)
+		return
+	}
+	if !sameDay(l.At, now) {
+		log.Printf("next launch is not today, no ascent arc")
 		return
 	}
 
@@ -413,7 +445,7 @@ func addAscent(sky *render.Sky, l sources.Launch) {
 	if !ok {
 		inclination = math.Abs(l.Position.Lat)
 	}
-	azimuth := astro.LaunchAzimuth(l.Position.Lat, inclination)
+	azimuth := aim(l, inclination)
 
 	track := render.TrackD(astro.GreatCircle(l.Position, azimuth, ascentArcDeg, ascentStepDeg))
 	if len(track) == 0 {
@@ -421,8 +453,22 @@ func addAscent(sky *render.Sky, l sources.Launch) {
 		return
 	}
 
-	sky.Ascent = &render.Ascent{Track: track, Ride: longest(track), Seconds: ascentLoop}
-	log.Printf("ascent arc from %s on azimuth %.1f for a %s mission", l.Site, azimuth, l.Orbit)
+	sky.Ascent = &render.Ascent{Track: track, Seconds: ascentLoop}
+	label := "nominal ascent, today"
+	if l.Flying {
+		sky.Ascent.Ride = longest(track)
+		label = "ascent under way"
+	}
+	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.LaunchNext, Label: label})
+	log.Printf("ascent arc from %s on azimuth %.1f for a %s mission, flying %v",
+		l.Site, azimuth, l.Orbit, l.Flying)
+}
+
+// sameDay is the whole of the launch's UTC date. A day-precision T-0 knows no
+// more than that, so the arc lives exactly as long as the date does.
+func sameDay(at, now time.Time) bool {
+	a, b := at.UTC(), now.UTC()
+	return a.Year() == b.Year() && a.YearDay() == b.YearDay()
 }
 
 func launchLabel(l sources.Launch) string {

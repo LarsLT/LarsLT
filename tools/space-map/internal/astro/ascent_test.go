@@ -64,6 +64,68 @@ func TestLaunchAzimuthIsAlwaysACompassBearing(t *testing.T) {
 	}
 }
 
+// TestMirrorAzimuthIsTheOtherRoot pins that the mirror reaches the same
+// inclination and that mirroring twice comes back where it started.
+func TestMirrorAzimuthIsTheOtherRoot(t *testing.T) {
+	for _, az := range []float64{0, 40.7, 90, 189.5, 270, 352.2} {
+		mirror := MirrorAzimuth(az)
+		if mirror < 0 || mirror >= 360 {
+			t.Errorf("mirror of %.1f is %.1f, off the compass", az, mirror)
+		}
+		if back := MirrorAzimuth(mirror); math.Abs(back-az) > 1e-9 {
+			t.Errorf("mirroring %.1f twice gave %.1f", az, back)
+		}
+	}
+}
+
+// TestCorridorContains covers a plain span and one that wraps through north,
+// which is how an easterly range like Kourou has to be written.
+func TestCorridorContains(t *testing.T) {
+	west := Corridor{From: 158, To: 201}
+	kourou := Corridor{From: 349, To: 93}
+
+	for _, tc := range []struct {
+		name string
+		c    Corridor
+		az   float64
+		want bool
+	}{
+		{"south is inside the western range", west, 189.5, true},
+		{"due east is not", west, 90, false},
+		{"due north is not", west, 0, false},
+		{"the near edge counts", west, 158, true},
+		{"the far edge counts", west, 201, true},
+		{"east is inside a wrapping range", kourou, 90, true},
+		{"just north of due north is too", kourou, 5, true},
+		{"north-northwest is inside", kourou, 352.2, true},
+		{"south is outside", kourou, 187.8, false},
+	} {
+		if got := tc.c.Contains(tc.az); got != tc.want {
+			t.Errorf("%s: Contains(%.1f) = %v, want %v", tc.name, tc.az, got, tc.want)
+		}
+	}
+}
+
+// TestCorridorNearestClampsToAnEdge covers the case no root fits, where the arc
+// has to be pulled to the closest heading the range would actually allow.
+func TestCorridorNearestClampsToAnEdge(t *testing.T) {
+	west := Corridor{From: 158, To: 201}
+
+	if got := west.Nearest(189.5); got != 189.5 {
+		t.Errorf("a bearing already inside moved to %.1f", got)
+	}
+	if got := west.Nearest(90); got != 158 {
+		t.Errorf("due east clamped to %.1f, want the near edge 158", got)
+	}
+	if got := west.Nearest(250); got != 201 {
+		t.Errorf("west-southwest clamped to %.1f, want the far edge 201", got)
+	}
+	// 260 is 102 from the near edge the short way round and 59 from the far one.
+	if got := west.Nearest(260); got != 201 {
+		t.Errorf("clamped the long way round to %.1f, want 201", got)
+	}
+}
+
 // TestGreatCircleStaysOnTheSphere walks an arc off every pad in the feed and
 // checks each sample is a real coordinate the right distance along.
 func TestGreatCircleStaysOnTheSphere(t *testing.T) {
