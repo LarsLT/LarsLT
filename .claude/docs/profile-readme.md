@@ -38,6 +38,31 @@ Use a `<picture>` with `<source media="(prefers-color-scheme: dark)" srcset="…
 default `<img>` for light — the README already does this for the github-readme-stats cards.
 For a single-mood piece (e.g. a starfield), a dark-only SVG is fine; skip the pair.
 
+## Hand-authored animations live on `main`
+
+Not every animation needs a generator. A mark that never changes and fetches nothing is
+**source**, so it belongs in `assets/` on `main` and is embedded with a relative path —
+no workflow, no dedicated branch. `assets/logo-draw.svg` is the example: the Zelf mark
+stroke-drawing itself once on load.
+
+The rule against build artifacts on `main` is about *generated* output. Don't spin up a
+branch and a cron to publish a file that has no clock and no upstream.
+
+Two details that make a stroke draw-on work, both borrowed from the portfolio site's
+`Logo.css`:
+
+- **`pathLength="1"` on the path.** It renormalises the path to length 1, so
+  `stroke-dasharray: 1` / `stroke-dashoffset: 1 → 0` sweeps the whole thing without anyone
+  measuring the real arc length. Works for any path.
+- **Put the dash properties *inside* `@media (prefers-reduced-motion: no-preference)`.**
+  Outside the query the path carries no dash at all, so a reduced-motion visitor gets the
+  finished mark instead of an empty box.
+
+Note the first-frame artifact: at `stroke-dashoffset: 1` the dash is degenerate, and with
+`stroke-linecap: round` that still paints a round cap — a single dot at the path's start
+point. It lasts one frame in a browser. It is also what a *static* renderer will show you,
+which is a trap when verifying (see below).
+
 ## Generated animations: the workflow pattern
 
 `snake.yml` is the template for self-updating content:
@@ -64,6 +89,13 @@ Rules of thumb for a new one:
 
 - Local, for a generator: build the SVG and open it (`xdg-open dist/<name>.svg`); grep it for
   `<script` (expect 0) and for `http` external refs (expect none).
+- Screenshotting an animation headlessly: `chromium --headless --virtual-time-budget=<ms>
+  --screenshot=f.png <file>.svg` steps the clock, but **only for the top-level document**.
+  Point it at an HTML page that embeds the SVG in an `<img>` and virtual time never reaches
+  the image's subdocument — every frame comes back at t=0, which for a draw-on is a blank
+  mark or a lone linecap dot. That is a limitation of the harness, not a broken SVG. Load
+  the `.svg` directly to see it move, and isolate geometry separately by pinning
+  `stroke-dashoffset` to `0` and `0.5` in static copies.
 - End to end: the only test that counts is loading **github.com/LarsLT** and watching it render
   and animate through camo. For a baked-clock animation, check again later to confirm it kept
   moving between rebuilds.
