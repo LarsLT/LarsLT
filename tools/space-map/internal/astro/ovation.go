@@ -13,9 +13,23 @@ const (
 	gridLats = 181
 )
 
-// visibleProbability is the contour the drawn band stops at. OVATION's diffuse
-// edge is real aurora, and a high threshold would drop the faint horizon arcs.
-const visibleProbability = 3.0
+const (
+	// seedProbability is what a meridian must reach before any of it is drawn.
+	// It is proof of an oval, not the few percent that lies over the polar cap.
+	seedProbability = 8.0
+
+	// edgeProbability is the contour a seeded band is traced out to. OVATION's
+	// diffuse edge is real aurora, and stopping at the seed would lose it.
+	edgeProbability = 4.0
+
+	// minRun is the shortest stretch of meridians worth drawing, below which a
+	// band is a speck.
+	minRun = 3
+
+	// taperDeg is how far past its last meridian a band is drawn closing to a
+	// point. An arc fades out along the oval, it does not end at a wall.
+	taperDeg = 4.0
+)
 
 // AuroraGrid is NOAA's OVATION output: the chance of aurora overhead at every
 // whole degree, forecast an hour past the measurements behind it.
@@ -90,8 +104,8 @@ type auroraEdge struct {
 	present bool
 }
 
-// edgeAt reads one column, growing out from its strongest cell so that a stray
-// reading far south cannot drag the whole band down over Spain.
+// edgeAt seeds on the column's strongest cell and grows out to the diffuse
+// contour, so a stray reading cannot drag the band down over Spain.
 func (g *AuroraGrid) edgeAt(lon float64, north bool) auroraEdge {
 	col := int(geo.WrapLon(lon) + 360)
 	col %= gridLons
@@ -106,15 +120,15 @@ func (g *AuroraGrid) edgeAt(lon float64, north bool) auroraEdge {
 			peak = lat
 		}
 	}
-	if g.prob[col][peak+90] < visibleProbability {
+	if g.prob[col][peak+90] < seedProbability {
 		return auroraEdge{lon: lon}
 	}
 
 	low, high := peak, peak
-	for lat := peak - dir; lat*dir >= 0 && g.prob[col][lat+90] >= visibleProbability; lat -= dir {
+	for lat := peak - dir; lat*dir >= 0 && g.prob[col][lat+90] >= edgeProbability; lat -= dir {
 		low = lat
 	}
-	for lat := peak + dir; lat*dir <= 90 && g.prob[col][lat+90] >= visibleProbability; lat += dir {
+	for lat := peak + dir; lat*dir <= 90 && g.prob[col][lat+90] >= edgeProbability; lat += dir {
 		high = lat
 	}
 
@@ -150,15 +164,34 @@ func ringsFrom(edges []auroraEdge) [][]geo.Point {
 			run = append(run, e)
 			continue
 		}
-		if len(run) > 1 {
-			rings = append(rings, ringOf(run))
+		if len(run) >= minRun {
+			rings = append(rings, ringOf(taperEnds(run)))
 		}
 		run = nil
 	}
-	if len(run) > 1 {
-		rings = append(rings, ringOf(run))
+	if len(run) >= minRun {
+		rings = append(rings, ringOf(taperEnds(run)))
 	}
 	return rings
+}
+
+// taperEnds closes an arc to a point at each end. A run reaching the seam is
+// left alone: it carries on over the map's other edge and has no end there.
+func taperEnds(run []auroraEdge) []auroraEdge {
+	first, last := run[0], run[len(run)-1]
+	if first.lon > -180 {
+		run = append([]auroraEdge{collapse(first, first.lon-taperDeg)}, run...)
+	}
+	if last.lon < 179 {
+		run = append(run, collapse(last, last.lon+taperDeg))
+	}
+	return run
+}
+
+// collapse is a meridian's slice with no height left, the point an arc ends at.
+func collapse(e auroraEdge, lon float64) auroraEdge {
+	mid := (e.seen + e.pole) / 2
+	return auroraEdge{lon: lon, seen: mid, pole: mid, present: true}
 }
 
 // ringOf walks the seen edge west to east and the poleward edge back, the same

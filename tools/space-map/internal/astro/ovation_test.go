@@ -102,8 +102,25 @@ func TestFootprintBreaksWhereThereIsNoAurora(t *testing.T) {
 		t.Fatalf("got %d rings, want the one stretch that has aurora", len(rings))
 	}
 	for _, p := range rings[0] {
-		if p.Lon < 10 || p.Lon > 99 {
-			t.Fatalf("ring runs out to lon %.0f, outside the stretch with aurora", p.Lon)
+		if p.Lon < 10-taperDeg || p.Lon > 99+taperDeg {
+			t.Fatalf("ring runs out to lon %.0f, past the taper on the stretch with aurora", p.Lon)
+		}
+	}
+
+	// The arc has to close to a point rather than end at a wall of light.
+	ends := map[float64]int{}
+	for _, p := range rings[0] {
+		ends[p.Lon]++
+	}
+	for _, lon := range []float64{10 - taperDeg, 99 + taperDeg} {
+		var lats []float64
+		for _, p := range rings[0] {
+			if p.Lon == lon {
+				lats = append(lats, p.Lat)
+			}
+		}
+		if len(lats) != 2 || lats[0] != lats[1] {
+			t.Errorf("at lon %.0f the band ends at %v, want both edges met at a point", lon, lats)
 		}
 	}
 	if len(oval(t, 65, 72, []int{}).Footprint(true)) != 0 {
@@ -140,6 +157,44 @@ func TestStrayCellDoesNotDragTheBandSouth(t *testing.T) {
 	}
 	if want := 65 - HorizonSkirt; math.Abs(lat-want) > 1e-9 {
 		t.Errorf("band reaches %.1fN, want %.1fN with the stray cell ignored", lat, want)
+	}
+}
+
+// A few percent of glow over the polar cap is not an oval. Drawn, it becomes a
+// slab: the projection stretches the pole to the map's full width.
+func TestWeakPolarCapIsNotAnOval(t *testing.T) {
+	g := NewAuroraGrid(time.Now())
+	for lon := range gridLons {
+		for lat := -90; lat <= 90; lat++ {
+			p := 0.0
+			if lat <= -78 {
+				p = edgeProbability + 1
+			}
+			if err := g.Set(lon, lat, p); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if rings := g.Footprint(false); len(rings) != 0 {
+		t.Errorf("drew %d bands for a cap with no oval in it", len(rings))
+	}
+
+	// The same cap under a real oval still has to stop short of the pole.
+	for lon := range gridLons {
+		for lat := -72; lat >= -76; lat-- {
+			if err := g.Set(lon, lat, seedProbability+4); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	rings := g.Footprint(false)
+	if len(rings) != 1 {
+		t.Fatalf("got %d bands, want the one oval", len(rings))
+	}
+	for _, p := range rings[0] {
+		if p.Lat <= -87 {
+			t.Fatalf("band runs to %.0f, into the cap", p.Lat)
+		}
 	}
 }
 

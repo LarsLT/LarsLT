@@ -128,7 +128,8 @@ func aurora(b *strings.Builder, bands []Aurora, masked bool) {
 		}
 		gradient := fmt.Sprintf("aurora%d", i)
 		auroraGradient(b, gradient, band)
-		fmt.Fprintf(b, `<path class="glow" d="%s" fill="url(#%s)"%s/>`, band.Path, gradient, mask)
+		fmt.Fprintf(b, `<path class="glow" d="%s" fill="url(#%s)" filter="url(#haze)"%s/>`,
+			band.Path, gradient, mask)
 	}
 }
 

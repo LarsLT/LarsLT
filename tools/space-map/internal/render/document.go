@@ -101,6 +101,10 @@ func writeDefs(b *strings.Builder) {
 		// mask that holds it there.
 		`<filter id="dusk" x="-5%%" y="-5%%" width="110%%" height="110%%">`+
 		`<feGaussianBlur stdDeviation="5"/></filter>`+
+		// The oval has no outline. Softening the band hides the meridians it was
+		// traced along, and the ends where the forecast simply stops.
+		`<filter id="haze" x="-10%%" y="-10%%" width="120%%" height="120%%">`+
+		`<feGaussianBlur stdDeviation="4"/></filter>`+
 		`</defs>`,
 		OceanPolar, Ocean, OceanPolar,
 		Num(MapW), Num(MapH))
