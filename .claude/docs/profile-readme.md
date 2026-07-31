@@ -55,9 +55,10 @@ Rules of thumb for a new one:
 - **Degrade, don't break.** Wrap every upstream fetch (timeout + one retry); on failure drop
   that layer and still emit a valid SVG. A broken upstream must never leave a broken image on
   the profile. Cache the last good response as a fallback for rate limits.
-- GitHub **disables scheduled workflows after ~60 days of repo inactivity**, and bot commits
-  don't count as activity. If the profile goes quiet, cron animations freeze until a manual
-  `workflow_dispatch`.
+- GitHub **disables scheduled workflows after ~60 days of repo inactivity**. `keepalive.yml`
+  covers this: an empty commit on `main`, monthly. A push from a generator workflow doesn't
+  substitute for it — those land on `space` / `output`, not the default branch. If the map
+  ever does freeze, `workflow_dispatch` restarts it and the cron resumes.
 
 ## Verifying a change
 

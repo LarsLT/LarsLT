@@ -1,0 +1,31 @@
+name: Keepalive
+
+# GitHub disables scheduled workflows after 60 days of repo inactivity, which
+# would freeze the space map. An empty commit on the default branch resets that
+# clock. space-map.yml pushes every 30 minutes but only to the `space` branch,
+# so it does not count.
+on:
+  schedule:
+    # 02:23 UTC on the 1st. Off-the-hour on purpose: GitHub drops or delays cron
+    # runs scheduled at :00 under load. Monthly leaves ~30 days of slack before
+    # the 60-day cutoff, enough to absorb one dropped run.
+    - cron: "23 2 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create empty commit
+        run: |
+          # Author email must be verified on the GitHub account, otherwise the
+          # commit does not count toward the contribution graph.
+          git config user.name "Lars Tokkie"
+          git config user.email "LarsTokkie@gmail.com"
+          git commit --allow-empty -m "chore: keepalive"
+          git push

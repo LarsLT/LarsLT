@@ -78,9 +78,7 @@ the aurora reaches tonight, which pads are flying this month, and where the ISS 
 now. The animation carries its own clock, so the night side keeps sweeping west at the
 speed the Earth actually turns, even between rebuilds.
 
-> Built with a small Go program in [`tools/space-map`](tools/space-map). If the map ever
-> looks frozen, the scheduled workflow has been paused for repo inactivity, which GitHub
-> does after 60 days.
+> Built with a small Go program in [`tools/space-map`](tools/space-map).
 
 ## 🐍 Contribution Graph
 
