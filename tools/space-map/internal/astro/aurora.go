@@ -23,7 +23,17 @@ const (
 	// visibilityReach is how far south the glow is seen from. Aurora sits about
 	// 100 km up, so it clears the horizon a few hundred kilometres away.
 	visibilityReach = 5.5
+
+	// stormKp is where a quiet oval becomes an event. NOAA calls Kp 5 a G1 minor
+	// storm, the point the glow reaches latitudes people live at.
+	stormKp = 5.0
 )
+
+// Storming reports whether there is an aurora to speak of. The oval itself is
+// always there, so without this every map carries a band that means nothing.
+func Storming(kp float64) bool {
+	return kp >= stormKp
+}
 
 // OvalBoundary is the geomagnetic latitude of the equatorward edge of the oval
 // at a given Kp.

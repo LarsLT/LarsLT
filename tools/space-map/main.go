@@ -307,6 +307,14 @@ func addAurora(ctx context.Context, client *sources.Client, sky *render.Sky, now
 		return
 	}
 
+	// A quiet oval is not an aurora, it is where the oval always sits. Nothing
+	// is drawn or said about it, so the layer showing up means something.
+	if !astro.Storming(kp.Kp) {
+		log.Printf("Kp %.2f at %s, no storm, aurora left off",
+			kp.Kp, kp.At.Format(time.RFC3339))
+		return
+	}
+
 	for _, north := range []bool{true, false} {
 		ring := astro.Oval(kp.Kp, north, ovalStepDeg)
 		sky.Aurora = append(sky.Aurora, render.Aurora{

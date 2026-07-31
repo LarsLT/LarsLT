@@ -61,6 +61,21 @@ func TestHigherKpReachesFurtherSouth(t *testing.T) {
 	}
 }
 
+// The whole point of the threshold is that a calm day draws nothing, so the
+// quiet oval must stay off and a real storm must come through.
+func TestStormingOnlyOnDisturbedDays(t *testing.T) {
+	for _, kp := range []float64{0, 2, 3.67, 4.9} {
+		if Storming(kp) {
+			t.Errorf("Kp %.2f counted as a storm", kp)
+		}
+	}
+	for _, kp := range []float64{5, 6.33, 9} {
+		if !Storming(kp) {
+			t.Errorf("Kp %.2f did not count as a storm", kp)
+		}
+	}
+}
+
 // smallCircleLat is single-rooted only below the pole's own latitude and Oval
 // never checks that, so the constants feeding it get pinned here instead.
 func TestOvalStaysInTheSingleRootRegion(t *testing.T) {
