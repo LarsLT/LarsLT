@@ -139,25 +139,16 @@ func eclipse(b *strings.Builder, e *Eclipse) {
 		EclipseColour, e.Umbra, e.Seconds)
 }
 
-// Station is the ISS: its ground track, and the leg of that track the station
-// is riding right now.
+// Station is the ISS. Leg is the stretch of ground track it is riding right
+// now, used as a path to move along rather than drawn.
 type Station struct {
-	Track   []string
 	Leg     string
 	Seconds int
 	Delay   float64
 }
 
 func station(b *strings.Builder, s *Station) {
-	if s == nil {
-		return
-	}
-	for _, run := range s.Track {
-		fmt.Fprintf(b,
-			`<path d="%s" fill="none" stroke="%s" stroke-width="1" opacity="0.4" stroke-dasharray="4 3"/>`,
-			run, ISS)
-	}
-	if s.Leg == "" {
+	if s == nil || s.Leg == "" {
 		return
 	}
 	fmt.Fprintf(b,

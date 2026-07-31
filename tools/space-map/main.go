@@ -116,8 +116,6 @@ func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, no
 		if path == "" {
 			continue
 		}
-		st.Track = append(st.Track, path)
-
 		// The first leg not already behind us is the one the station is on, or,
 		// in the step of time a split drops, the one it is a moment from joining.
 		if st.Leg == "" && !times[run[1]].Before(now) {
@@ -140,11 +138,11 @@ func addStation(ctx context.Context, client *sources.Client, sky *render.Sky, no
 	}
 
 	sky.Station = st
-	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.ISS, Label: "ISS ground track"})
+	sky.Legend = append(sky.Legend, render.LegendItem{Colour: render.ISS, Label: "ISS"})
 
 	here := tle.SubPoint(now)
 	log.Printf("ISS at %.1fN %.1fE, elements %s old, %d track legs",
-		here.Lat, here.Lon, tle.Age(now).Round(time.Hour), len(st.Track))
+		here.Lat, here.Lon, tle.Age(now).Round(time.Hour), len(runs))
 }
 
 // trackRuns splits a ground track wherever it leaves one edge of the map and
