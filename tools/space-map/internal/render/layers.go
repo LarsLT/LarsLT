@@ -236,9 +236,16 @@ func nextLaunch(b *strings.Builder, p LaunchPad) {
 	if p.X+dx+TextWidth(p.Label, labelSize) > MapW {
 		anchor, dx = "end", -9.0
 	}
+
+	// Off the pad's own line, so an ascent arc leaving due east or west does not
+	// run through the text. Below instead when the pad is too near the top edge.
+	dy := -7.0
+	if p.Y < labelSize+2 {
+		dy = 15
+	}
 	fmt.Fprintf(b,
 		`<text x="%s" y="%s" fill="%s" font-size="%s" text-anchor="%s">%s</text>`,
-		Num(p.X+dx), Num(p.Y+4), LaunchNext, Num(labelSize), anchor, Esc(p.Label))
+		Num(p.X+dx), Num(p.Y+dy), LaunchNext, Num(labelSize), anchor, Esc(p.Label))
 }
 
 func land(b *strings.Builder, path string) {

@@ -43,6 +43,22 @@ func TestNextLaunchFlipsOnLabelWidth(t *testing.T) {
 	}
 }
 
+// TestNextLaunchKeepsTheLabelOffThePadsLine stops the label sitting on top of
+// an ascent arc, which leaves the pad horizontally for most orbits.
+func TestNextLaunchKeepsTheLabelOffThePadsLine(t *testing.T) {
+	for _, y := range []float64{6, 29, 200, 494} {
+		got := draw(func(b *strings.Builder) {
+			nextLaunch(b, LaunchPad{X: 400, Y: y, Label: "01 Aug 02:00Z  Falcon 9", Next: true})
+		})
+		if strings.Contains(got, `y="`+Num(y)+`"`) {
+			t.Errorf("label sits on the pad's line at y=%v:\n%s", y, got)
+		}
+		if strings.Contains(got, `y="-`) {
+			t.Errorf("label ran off the top at y=%v:\n%s", y, got)
+		}
+	}
+}
+
 func TestNextLaunchWithoutLabel(t *testing.T) {
 	got := draw(func(b *strings.Builder) {
 		nextLaunch(b, LaunchPad{X: 400, Y: 200, Next: true})
