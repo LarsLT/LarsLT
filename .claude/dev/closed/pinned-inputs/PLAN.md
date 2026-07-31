@@ -70,3 +70,28 @@ existing file stays exactly as it is; this only fixes the *next* run.
 Do both. Neither changes any behaviour today, and both are the kind of thing that
 is trivial now and annoying to reconstruct later. Item 1 is the one with an actual
 (small) security argument behind it.
+
+## Landed — 2026-07-31
+
+Both done, one commit each.
+
+Item 1, `chore: pin third-party actions to commit SHAs`. Both tags resolved to
+lightweight tags (`.object.type` came back `commit`), so the annotated-tag
+dereference in the note above was never needed:
+
+| action | tag | commit |
+|---|---|---|
+| `Platane/snk` | v3 | `d8f6715049803e982ee5ff501b6b9b7d5deeb09b` |
+| `crazy-max/ghaction-github-pages` | v4 | `df5cc2bfa78282ded844b354faee141f06b41865` |
+
+Item 2, `chore: pin the basemap source to a natural-earth tag`. Pinned to `v5.1.2`,
+the newest tag. Verified reproducible rather than assumed: the blob at `v5.1.2` and
+at `master` are the same object (`1e6ab74c…`, 838 726 bytes), so a rerun regenerates
+the committed `basemap.json` byte for byte instead of silently redrawing the map.
+
+`data/basemap.json` was deliberately left alone. Its `source` field still records the
+`master` URL, which is where it genuinely came from; the pin governs the next run.
+
+**Convention going forward:** a third-party action added to a workflow gets a SHA and
+a trailing `# vN` comment. GitHub-owned actions (`actions/checkout`, `setup-go`,
+`cache`) stay on tags.
