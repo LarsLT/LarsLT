@@ -366,11 +366,13 @@ func addLaunches(ctx context.Context, client *sources.Client, sky *render.Sky, n
 		})
 	}
 
+	addAscent(sky, pads[0].Next)
+
 	for _, l := range launches[:min(len(launches), tickerLaunches)] {
 		sky.Ticker = append(sky.Ticker, tickerLine(l))
 	}
 	sky.Legend = append(sky.Legend,
-		render.LegendItem{Colour: render.LaunchNext, Label: "next launch"},
+		render.LegendItem{Colour: render.LaunchNext, Label: "next launch, nominal ascent"},
 		render.LegendItem{Colour: render.Launch, Label: "launch pad, next 30 days"},
 	)
 
@@ -380,6 +382,50 @@ func addLaunches(ctx context.Context, client *sources.Client, sky *render.Sky, n
 // tickerLaunches is how many flights fit under the map without crowding it, now
 // that every other layer wants a line too.
 const tickerLaunches = 1
+
+// The ascent arc: roughly the ground distance a rocket covers before insertion,
+// sampled fine enough to stay smooth, and looped in seconds.
+const (
+	ascentArcDeg  = 25
+	ascentStepDeg = 1
+	ascentLoop    = 7
+)
+
+// nominalInclination is the aim inferred from the orbit class, since the feed
+// carries no inclination field. Anything else flies the minimum-energy case.
+var nominalInclination = map[string]float64{
+	"SSO": 97.8,
+	"PO":  90,
+	"MEO": 55,
+}
+
+// noAscent are the missions an insertion arc says nothing about: a hop that
+// never reaches orbit, and the trajectories that leave it.
+var noAscent = map[string]bool{"Sub": true, "Mars": true, "L2": true}
+
+// addAscent draws where the next flight would go if everything went perfectly.
+// It is a simulation and loops forever, so it stays thin and quiet.
+func addAscent(sky *render.Sky, l sources.Launch) {
+	if noAscent[l.Orbit] {
+		log.Printf("no ascent arc for a %s mission", l.Orbit)
+		return
+	}
+
+	inclination, ok := nominalInclination[l.Orbit]
+	if !ok {
+		inclination = math.Abs(l.Position.Lat)
+	}
+	azimuth := astro.LaunchAzimuth(l.Position.Lat, inclination)
+
+	track := render.TrackD(astro.GreatCircle(l.Position, azimuth, ascentArcDeg, ascentStepDeg))
+	if len(track) == 0 {
+		log.Print("ascent arc has no drawable run")
+		return
+	}
+
+	sky.Ascent = &render.Ascent{Track: track, Ride: longest(track), Seconds: ascentLoop}
+	log.Printf("ascent arc from %s on azimuth %.1f for a %s mission", l.Site, azimuth, l.Orbit)
+}
 
 func launchLabel(l sources.Launch) string {
 	return fmt.Sprintf("%s  %s", launchWhen(l), l.Name)

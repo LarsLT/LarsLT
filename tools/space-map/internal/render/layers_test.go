@@ -96,6 +96,26 @@ func TestAuroraSkipsEmptyBands(t *testing.T) {
 	}
 }
 
+// TestAscentDrawsTheArcWithoutADot covers a track split so hard by the
+// antimeridian that no run is worth riding. The aim still draws; nothing moves.
+func TestAscentDrawsTheArcWithoutADot(t *testing.T) {
+	got := draw(func(b *strings.Builder) {
+		ascent(b, &Ascent{Track: []string{"M0,0L40,20", "M960,0L1000,20"}, Seconds: 7})
+	})
+	if n := strings.Count(got, "<path"); n != 2 {
+		t.Errorf("drew %d paths, want 2:\n%s", n, got)
+	}
+	if strings.Contains(got, "<circle") {
+		t.Errorf("drew a dot with no run to ride:\n%s", got)
+	}
+}
+
+func TestAscentSkipsAMissingLayer(t *testing.T) {
+	if got := draw(func(b *strings.Builder) { ascent(b, nil) }); got != "" {
+		t.Errorf("drew %q for no ascent", got)
+	}
+}
+
 func TestTerminatorStrokesTheEdgePathWhenItHasOne(t *testing.T) {
 	const night, edge = "M0,0L1000,0L1000,500L0,500Z", "M0,0L1000,0"
 

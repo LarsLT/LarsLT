@@ -93,6 +93,7 @@ func TestDocumentFull(t *testing.T) {
 		Aurora:     []Aurora{{Path: ring, North: true}, {Path: ring}},
 		Eclipse:    &Eclipse{Band: ring, Centre: []string{"M0,0L400,500", "M600,0L1000,500"}, Umbra: "M0,0L400,500", Seconds: 14},
 		Station:    &Station{Track: []string{"M0,0L500,250"}, Leg: "M0,0L500,250", Seconds: 2700, Delay: -1234.5},
+		Ascent:     &Ascent{Track: []string{"M0,0L120,90"}, Ride: "M0,0L120,90", Seconds: 7},
 		Launches: []LaunchPad{
 			{X: 200, Y: 300},
 			{X: 780, Y: 120, Label: "30 Jul 06:12Z  Soyuz MS-29 crew rotation flight", Next: true},

@@ -170,6 +170,37 @@ func station(b *strings.Builder, s *Station) {
 		ISS, s.Leg, s.Seconds, Num2(s.Delay))
 }
 
+// Ascent is the nominal track off the next pad: where the rocket would fly if
+// everything went perfectly. A simulation, never a live position.
+type Ascent struct {
+	// Track is one path per crossing of the map's edge, and Ride is the run long
+	// enough to carry the dot.
+	Track   []string
+	Ride    string
+	Seconds int
+}
+
+// ascent draws quietly on purpose. It is a projection of a flight that has not
+// happened, so it gets a thin line and no glow.
+func ascent(b *strings.Builder, a *Ascent) {
+	if a == nil {
+		return
+	}
+	for _, run := range a.Track {
+		fmt.Fprintf(b,
+			`<path d="%s" fill="none" stroke="%s" stroke-width="0.9" opacity="0.45"`+
+				` stroke-dasharray="2 3"/>`,
+			run, LaunchNext)
+	}
+	if a.Ride == "" {
+		return
+	}
+	fmt.Fprintf(b,
+		`<circle class="ascent" r="2.6" fill="%s" style="offset-path:path('%s');`+
+			`animation-duration:%ds"/>`,
+		LaunchNext, a.Ride, a.Seconds)
+}
+
 // LaunchPad is a projected launch site. The soonest one gets the ring and the
 // only label, so a crowded coast stays readable.
 type LaunchPad struct {

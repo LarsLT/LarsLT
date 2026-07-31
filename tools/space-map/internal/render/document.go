@@ -22,6 +22,7 @@ type Sky struct {
 	Aurora     []Aurora
 	Eclipse    *Eclipse
 	Station    *Station
+	Ascent     *Ascent
 	Launches   []LaunchPad
 	Legend     []LegendItem
 	Ticker     []string
@@ -73,6 +74,7 @@ func Document(sky Sky) string {
 	aurora(&b, sky.Aurora)
 	eclipse(&b, sky.Eclipse)
 	station(&b, sky.Station)
+	ascent(&b, sky.Ascent)
 	launchPads(&b, sky.Launches)
 	b.WriteString(`</g>`)
 
@@ -126,6 +128,12 @@ func writeStyle(b *strings.Builder) {
 		`.station{offset-rotate:0deg;animation-name:ride;animation-timing-function:linear;`+
 		`animation-iteration-count:infinite}`+
 		`@keyframes ride{from{offset-distance:0%%}to{offset-distance:100%%}}`+
+		// The ascent accelerates like the real thing and fades at both ends, so
+		// it reads as a projection rather than a rocket anyone is tracking.
+		`.ascent{offset-rotate:0deg;animation-name:ascent;animation-timing-function:ease-in;`+
+		`animation-iteration-count:infinite}`+
+		`@keyframes ascent{0%%{offset-distance:0%%;opacity:0}15%%,85%%{opacity:.9}`+
+		`100%%{offset-distance:100%%;opacity:0}}`+
 		`</style>`,
 		FontSans, FontMono, int(SolarDay.Seconds()), Num(MapW))
 }
