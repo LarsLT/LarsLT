@@ -99,6 +99,6 @@ The live feed carried no `In Flight` record at the time this landed (`TBD` 44,
 
 ## Related, already decided
 
-The **launch ascent arc** (`../launch-arc/PLAN.md`) is the feature that would make
+The **launch ascent arc** (`../../proposed/launch-arc/PLAN.md`) is the feature that would make
 liftoff actually visible. If that gets built, revisit this — an arc is far more
 useful when the map admits the rocket is on it.
