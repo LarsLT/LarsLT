@@ -1,6 +1,4 @@
 <div align="center">
-  <img src="assets/logo-draw.svg" width="120" alt="Zelf mark"/>
-
   <img src="https://capsule-render.vercel.app/api?type=waving&color=0:1a1b27,50:2c5364,100:58a6ff&height=200&section=header&text=Hi%2C%20I%27m%20Lars&fontSize=48&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=Systems%20%C2%B7%20Embedded%20%C2%B7%20Maker&descSize=20&descAlignY=55" width="100%" alt="banner"/>
 
   <a href="https://github.com/LarsLT">
