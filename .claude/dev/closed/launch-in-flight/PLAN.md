@@ -50,6 +50,53 @@ contained no `In Flight` entry at all (`TBD` 42, `Go` 11, `TBC` 5, `Success` 2).
 So: correct, cheap, and it will almost never be seen. Worth doing only if the idea
 of the map going blank at liftoff bothers you more than the ten lines cost.
 
+## Landed — 2026-07-31
+
+Option C, in `feat: keep a rocket on the map while it is climbing`.
+
+**Bigger than the ten lines, on purpose.** The section above is right that
+`at.Before(now)` fires before status is ever read — but that makes letting
+`In Flight` through `aheadOfUs()` alone a no-op in every case anyone would
+actually see. Built as described it would have gone blank at liftoff exactly as
+before, which is the one thing this plan exists to stop. So the past-T-0 test
+now yields to the status:
+
+```go
+flying := r.Status.Abbrev == statusInFlight
+if at.Before(now) && !(flying && now.Sub(at) < ascentWindow) {
+    continue
+}
+```
+
+`ascentWindow` is 30 minutes. It has to be bounded: `aheadOfUs`'s own comment
+notes the feed holds a launch for hours after liftoff, and a cached feed may
+stand in for the live one for a day, so an unbounded rule would fly one rocket
+until the cache expired.
+
+`aheadOfUs` was renamed `worthDrawing` — it no longer means "still to come" now
+that an airborne rocket passes it.
+
+**Shape of it.** `Launch.Flying` carries the fact; `launchWhen()` gained a branch
+ahead of `Vague` that prints `lifting off` and no time.
+
+**Tests.** `TestLaunchesDropsFlightsThatAlreadyWent` gained a `flying` column and
+now expects `In Flight` drawn. New `TestLaunchesDrawsARocketThatIsAirborne` covers
+a T-0 just past, one inside the window, one beyond it, and a past T-0 without the
+status. New `main_test.go` holds `TestLaunchWhen`, the first test in the main
+package — the label branch had nowhere else to live.
+
+**Verified.** `go test ./...` green, `gofmt`/`go vet` clean. Real and `-offline`
+builds both well-formed XML with zero `<script>`/`<animate>`.
+
+One gap worth naming: there is no end-to-end proof that `lifting off` reaches the
+SVG. The cache is only a fallback, so a patched cache file is overwritten by the
+live fetch, and `-offline` skips the layer entirely — there is no way to feed the
+real binary a synthetic launch without making `launchesURL` injectable. Selection
+and label are each unit-tested; only their meeting is not.
+
+The live feed carried no `In Flight` record at the time this landed (`TBD` 44,
+`Go` 11, `TBC` 5), so the profile looks identical today. As predicted.
+
 ## Related, already decided
 
 The **launch ascent arc** (`../launch-arc/PLAN.md`) is the feature that would make
