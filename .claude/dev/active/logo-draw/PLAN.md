@@ -27,12 +27,37 @@ above the banner, so the mark is the first thing a visitor sees.
 
 ## Steps
 
-- [ ] Write `assets/logo-draw.svg` — path from `Logo/dist/Logo.svg`, `pathLength="1"`,
+- [x] Write `assets/logo-draw.svg` — path from `Logo/dist/Logo.svg`, `pathLength="1"`,
       stroke `#58a6ff`, inline `<style>` with the reduced-motion-guarded keyframes
-- [ ] Verify locally: no `<script`, no external `http` refs, renders and animates in a browser
-- [ ] Add the `<img>` to `README.md` above the banner
-- [ ] Note the convention in `.claude/docs/profile-readme.md`
+- [x] Verify locally: no `<script`, no external `http` refs, renders and animates in a browser
+- [x] Add the `<img>` to `README.md` above the banner
+- [x] Note the convention in `.claude/docs/profile-readme.md`
 - [ ] Confirm on github.com/LarsLT in both themes (needs a push — Lars does that)
+
+## Verification so far
+
+`d` attribute compared byte for byte against both `Logo/dist/Logo.svg` and the `MARK`
+constant in `website/frontend/src/Components/Logo/Logo.tsx` — identical to both.
+`grep -c '<script'` → 0, no external `http` refs, XML parses.
+
+Rendered in Chromium at 1 ms / 500 / 1000 / 1500 / 2200 ms: the sweep runs ring → petals
+in one continuous motion and completes at 2 s, matching a no-dash static render of the same
+path. Contrast checked against `#ffffff` and `#0d1117`.
+
+Only the live profile is still unverified, and that needs a push.
+
+## Gotcha worth remembering
+
+The first headless screenshots came back as a single blue dot and looked like a broken SVG.
+Two things were stacked:
+
+1. `--virtual-time-budget` does not advance animations inside an `<img>`-embedded SVG, only
+   in the top-level document, so every frame was really t=0.
+2. At t=0 the dash is degenerate, and `stroke-linecap: round` still paints a round cap — so
+   t=0 is a dot at the path's start point, not an empty frame.
+
+Pinning `stroke-dashoffset` to `0` and `0.5` in throwaway copies separated geometry from
+animation and settled it. Both notes are now in `.claude/docs/profile-readme.md`.
 
 ## Decisions
 
