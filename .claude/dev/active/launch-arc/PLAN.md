@@ -102,7 +102,42 @@ presented as the real trajectory.
   no `<script>`, no SMIL, nothing camo blocks.
 - The arc belongs to the ringed next-launch pad only. One arc, never a bundle.
 
-## Decisions — 2026-07-31
+## Decisions — 2026-07-31, revised the same day
+
+D1 and D3 were both reversed after seeing the first render. What they became:
+
+**D1 is now: the arc appears on the day of the launch, and only a rocket the
+feed says is airborne gets a moving dot.** A dot looping forever for a flight
+three weeks out is the pattern the meteor layer was deleted over, and a static
+arc standing on the map for a month is the same claim made quietly. Gating on
+the launch's own UTC date is the honest version, and it reuses `Launch.Flying`
+from the launch-in-flight work for the dot. Most days the map has no arc at all.
+
+**D3 is now: a per-site corridor table, after all.** Trusting the formula put a
+Starlink flight due east out of Vandenberg, straight across the United States,
+on a range that only flies south. Vandenberg is the busiest pad in the feed, so
+the wrong case was also the common one.
+
+The mechanism is not the plan's original "preferred heading" but a span of
+permitted azimuths per range, which is what the underlying safety rule actually
+is. Both roots of the azimuth are tried against it, and only if neither fits is
+the bearing clamped to the nearest permitted edge. That ordering matters:
+
+| case | formula | corridor | drawn |
+|---|---|---|---|
+| Vandenberg `LEO` | 90.0 (both roots) | 140–201 | 140.0, clamped |
+| Vandenberg `SSO` | 189.5 | 140–201 | 189.5, already fits |
+| Guiana `SSO` | 187.8 | 349–93 | 352.2, the mirror fits |
+| Canaveral `MEO` | 40.7 | 37–112 | 40.7, already fits |
+| Rocket Lab NZ `SSO` | 190.1 | not listed | 190.1, unchanged |
+
+Only ranges whose limits are not in doubt are listed, and an absent site keeps
+exactly what the formula said, so nothing that worked before regressed.
+
+The corridor numbers are approximate. Vandenberg is 140 rather than the
+traditional 158 because the newer Starlink shells really do fly southeast.
+
+## Superseded decisions — 2026-07-31
 
 **D1: loop it, styled quiet.** One visual state, no date gating. The feature was
 asked for as a simulation, and the umbra's own comment already sanctions a prop
