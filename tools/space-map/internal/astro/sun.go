@@ -60,11 +60,11 @@ func SunElevation(p, subsolar geo.Point) float64 {
 	return math.Asin(math.Min(1, math.Max(-1, cosZenith))) * rad
 }
 
-// AnyDark reports whether any of these points is on the night side. A shape
-// that is entirely in daylight is one nobody on Earth can see.
-func AnyDark(track []geo.Point, subsolar geo.Point) bool {
+// AnyDark reports whether any of these points has the sun that far under the
+// horizon. A shape that is nowhere dark is one nobody on Earth can see.
+func AnyDark(track []geo.Point, subsolar geo.Point, depression float64) bool {
 	for _, p := range track {
-		if SunElevation(p, subsolar) < 0 {
+		if SunElevation(p, subsolar) < -depression {
 			return true
 		}
 	}
@@ -92,6 +92,87 @@ func TerminatorTrace(subsolar geo.Point, stepDeg float64) []geo.Point {
 		pts = append(pts, geo.Point{Lon: lon, Lat: lat})
 	}
 	return pts
+}
+
+// DarkPolygon traces the ground where the sun is at least depression degrees
+// under the horizon, which is a cap around the antisolar point.
+func DarkPolygon(subsolar geo.Point, depression, stepDeg float64) []geo.Point {
+	antisolar := geo.Point{Lat: -subsolar.Lat, Lon: geo.WrapLon(subsolar.Lon + 180)}
+	radius := 90 - depression
+
+	// Deep into a season the cap swallows a pole and closes along it, the way
+	// night does. Near an equinox it reaches neither pole and is a lens.
+	polarLat, holdsPole := capHoldsPole(antisolar, radius)
+	if !holdsPole {
+		return capLens(antisolar, radius, stepDeg)
+	}
+
+	var ring []geo.Point
+	for lon := -180.0; lon <= 180.0+stepDeg/2; lon += stepDeg {
+		lats := capCrossings(antisolar, radius, lon)
+		if len(lats) == 0 {
+			return nil
+		}
+		ring = append(ring, geo.Point{Lon: lon, Lat: lats[0]})
+	}
+	return append(ring,
+		geo.Point{Lon: 180, Lat: polarLat},
+		geo.Point{Lon: -180, Lat: polarLat},
+	)
+}
+
+// capHoldsPole says which pole a cap encloses, if either.
+func capHoldsPole(centre geo.Point, radius float64) (float64, bool) {
+	switch {
+	case 90-centre.Lat < radius:
+		return 90, true
+	case 90+centre.Lat < radius:
+		return -90, true
+	}
+	return 0, false
+}
+
+// capLens traces a cap that reaches no pole, far edge out and near edge back.
+// Longitudes are left unwrapped so the shape stays whole across the seam.
+func capLens(centre geo.Point, radius, stepDeg float64) []geo.Point {
+	var near, far []geo.Point
+	for lon := centre.Lon - 180; lon <= centre.Lon+180; lon += stepDeg {
+		lats := capCrossings(centre, radius, lon)
+		if len(lats) < 2 {
+			continue
+		}
+		near = append(near, geo.Point{Lon: lon, Lat: math.Max(lats[0], lats[1])})
+		far = append(far, geo.Point{Lon: lon, Lat: math.Min(lats[0], lats[1])})
+	}
+	for i := len(far) - 1; i >= 0; i-- {
+		near = append(near, far[i])
+	}
+	return near
+}
+
+// capCrossings is where a circle of some angular radius about a centre crosses
+// one meridian. A meridian that misses it altogether gets nothing back.
+func capCrossings(centre geo.Point, radius, lon float64) []float64 {
+	a := math.Sin(centre.Lat * deg)
+	b := math.Cos(centre.Lat*deg) * math.Cos((lon-centre.Lon)*deg)
+	amplitude := math.Hypot(a, b)
+	if amplitude == 0 {
+		return nil
+	}
+	ratio := math.Cos(radius*deg) / amplitude
+	if math.Abs(ratio) > 1 {
+		return nil
+	}
+
+	phase := math.Atan2(b, a)
+	principal := math.Asin(ratio)
+	var lats []float64
+	for _, root := range [2]float64{principal - phase, math.Pi - principal - phase} {
+		if lat := wrapAngle(root) * rad; math.Abs(lat) <= 90 {
+			lats = append(lats, lat)
+		}
+	}
+	return lats
 }
 
 // NightPolygon traces the unlit half of the world. Darkness always reaches one

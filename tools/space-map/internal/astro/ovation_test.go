@@ -252,7 +252,7 @@ func TestPolarDayLeavesNothingToSee(t *testing.T) {
 	for lon := -180.0; lon < 180; lon += 5 {
 		arctic = append(arctic, geo.Point{Lon: lon, Lat: 84})
 	}
-	if AnyDark(arctic, subsolar) {
+	if AnyDark(arctic, subsolar, 0) {
 		t.Error("found night at 84N in midsummer")
 	}
 
@@ -260,7 +260,7 @@ func TestPolarDayLeavesNothingToSee(t *testing.T) {
 	for lon := -180.0; lon < 180; lon += 5 {
 		antarctic = append(antarctic, geo.Point{Lon: lon, Lat: -84})
 	}
-	if !AnyDark(antarctic, subsolar) {
+	if !AnyDark(antarctic, subsolar, 0) {
 		t.Error("found no night at 84S in the southern winter")
 	}
 }

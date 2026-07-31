@@ -17,6 +17,9 @@ type LegendItem struct {
 // baked at the current sun position and then slides west, as the real one does.
 type Terminator struct {
 	NightPath string
+	// DarkPath is the smaller region where the sky is dark enough to see a faint
+	// aurora, well inside the night. Empty falls back to plain night.
+	DarkPath string
 	// EdgePath is the day/night boundary alone. NightPath has to close along the
 	// dark pole, and stroking that seam draws a terminator where there is none.
 	EdgePath string
@@ -97,13 +100,18 @@ func nightMask(b *strings.Builder, term *Terminator) {
 	if term == nil || term.NightPath == "" {
 		return
 	}
+	dark := term.DarkPath
+	if dark == "" {
+		dark = term.NightPath
+	}
 	fmt.Fprintf(b, `<mask id="%s" maskUnits="userSpaceOnUse" x="0" y="0" width="%s" height="%s">`,
 		nightMaskID, Num(MapW), Num(MapH))
-	// Blurring the two copies together rather than one by one: separately, the
-	// soft edges would not meet and a seam would slide across the map.
+	// Blurring the copies together rather than one by one: separately, the soft
+	// edges would not meet and a seam would slide across the map. Three of them,
+	// since near an equinox the shape is a lens that hangs over the seam.
 	fmt.Fprintf(b, `<g class="night" filter="url(#dusk)">`)
-	for _, shift := range []float64{0, MapW} {
-		fmt.Fprintf(b, `<path d="%s" transform="translate(%s,0)" fill="#fff"/>`, term.NightPath, Num(shift))
+	for _, shift := range []float64{-MapW, 0, MapW} {
+		fmt.Fprintf(b, `<path d="%s" transform="translate(%s,0)" fill="#fff"/>`, dark, Num(shift))
 	}
 	b.WriteString(`</g></mask>`)
 }

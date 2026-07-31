@@ -134,8 +134,10 @@ func TestNightMaskSweepsWithTheTerminator(t *testing.T) {
 	if !strings.Contains(got, `class="night"`) {
 		t.Errorf("mask does not carry the sweep:\n%s", got)
 	}
-	if n := strings.Count(got, "<path"); n != 2 {
-		t.Errorf("mask has %d copies, want the pair that loops seamlessly:\n%s", n, got)
+	// Three copies: near an equinox the dark region is a lens hanging over the
+	// seam, so it has to be covered either side as well as in place.
+	if n := strings.Count(got, "<path"); n != 3 {
+		t.Errorf("mask has %d copies, want the three that loop seamlessly:\n%s", n, got)
 	}
 	if got := draw(func(b *strings.Builder) { nightMask(b, nil) }); got != "" {
 		t.Errorf("wrote a mask with no night:\n%s", got)

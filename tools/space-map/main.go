@@ -294,6 +294,10 @@ func shadowBand(e *data.Eclipse, lo, hi int) []geo.Point {
 // ovalStepDeg traces the auroral edges at the same resolution as the sun's.
 const ovalStepDeg = 2.0
 
+// auroraDarkness is how far the sun has to be under the horizon before a faint
+// arc shows. Nautical twilight: below the horizon is not the same as dark.
+const auroraDarkness = 12.0
+
 // homeLon is the meridian the aurora sentence is written for. The map is on a
 // Dutch profile, so "how far south" means how far south over the Netherlands.
 const homeLon = 5.0
@@ -326,7 +330,7 @@ func addAurora(ctx context.Context, client *sources.Client, sky *render.Sky, now
 	reach, seen := 91.0, false
 	for _, side := range sides {
 		for _, band := range side.bands {
-			if !astro.AnyDark(band.Ring, subsolar) {
+			if !astro.AnyDark(band.Ring, subsolar, auroraDarkness) {
 				continue
 			}
 			sky.Aurora = append(sky.Aurora, render.Aurora{
@@ -424,7 +428,7 @@ func skirtFraction(ring []geo.Point) float64 {
 func darkestReach(ring []geo.Point, subsolar geo.Point) float64 {
 	lowest := 91.0
 	for _, p := range ring {
-		if astro.SunElevation(p, subsolar) < 0 {
+		if astro.SunElevation(p, subsolar) < -auroraDarkness {
 			lowest = min(lowest, p.Lat)
 		}
 	}
@@ -435,7 +439,7 @@ func darkestReach(ring []geo.Point, subsolar geo.Point) float64 {
 // step outside tonight and see it. That needs the glow overhead and darkness.
 func homeReach(sides []auroraSide, subsolar geo.Point) bool {
 	home := geo.Point{Lon: homeLon, Lat: dutchLat}
-	if astro.SunElevation(home, subsolar) >= 0 {
+	if astro.SunElevation(home, subsolar) >= -auroraDarkness {
 		return false
 	}
 	for _, side := range sides {
@@ -638,6 +642,7 @@ func buildTerminator(now time.Time) *render.Terminator {
 
 	return &render.Terminator{
 		NightPath: render.PolygonPath(night),
+		DarkPath:  render.PolygonPath(astro.DarkPolygon(subsolar, auroraDarkness, terminatorStepDeg)),
 		EdgePath:  render.PathD(project(astro.TerminatorTrace(subsolar, terminatorStepDeg)), false),
 		SunX:      sun.X,
 		SunY:      sun.Y,

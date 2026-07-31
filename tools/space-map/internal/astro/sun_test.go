@@ -214,3 +214,53 @@ func TestNightPolygonSpansTheWholeMap(t *testing.T) {
 		t.Errorf("polygon spans %.1f..%.1f, want -180..180", minLon, maxLon)
 	}
 }
+
+// Every point traced has to be a place the sun sits exactly that far under the
+// horizon, which is the one thing the aurora mask rests on.
+func TestDarkPolygonFollowsTheDepression(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		when time.Time
+		pole bool
+	}{
+		{"northern summer", time.Date(2026, time.July, 31, 9, 47, 0, 0, time.UTC), true},
+		{"southern summer", time.Date(2026, time.January, 12, 3, 0, 0, 0, time.UTC), true},
+		{"equinox", time.Date(2026, time.September, 22, 18, 0, 0, 0, time.UTC), false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			subsolar := SubsolarPoint(c.when)
+			ring := DarkPolygon(subsolar, 12, 2)
+			if len(ring) == 0 {
+				t.Fatal("traced nothing")
+			}
+
+			touchedPole := false
+			for _, p := range ring {
+				if math.Abs(p.Lat) == 90 {
+					touchedPole = true
+					continue
+				}
+				if got := SunElevation(p, subsolar); math.Abs(got+12) > 1e-6 {
+					t.Fatalf("at %.0f,%.0f the sun is %.4f up, want 12 down", p.Lon, p.Lat, got)
+				}
+			}
+			if touchedPole != c.pole {
+				t.Errorf("closed along a pole: %v, want %v", touchedPole, c.pole)
+			}
+		})
+	}
+}
+
+// Nautical twilight is a smaller region than plain night, and it has to sit
+// inside it rather than wander off somewhere else.
+func TestDarkerThanNightIsInsideNight(t *testing.T) {
+	subsolar := SubsolarPoint(time.Date(2026, time.July, 31, 9, 47, 0, 0, time.UTC))
+	for _, p := range DarkPolygon(subsolar, 12, 2) {
+		if math.Abs(p.Lat) == 90 {
+			continue
+		}
+		if SunElevation(p, subsolar) >= 0 {
+			t.Fatalf("point %.0f,%.0f is in daylight", p.Lon, p.Lat)
+		}
+	}
+}
