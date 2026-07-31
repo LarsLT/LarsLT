@@ -32,7 +32,10 @@ var ErrOffline = fmt.Errorf("offline")
 // Request is one source's fetch: where it comes from, what its cached copy is
 // called, how stale that copy may get, and how to tell data from an error page.
 type Request struct {
-	URL      string
+	URL string
+	// Mirror is a second endpoint carrying the same feed, tried when the first
+	// one refuses. Empty for a source with nowhere else to go.
+	Mirror   string
 	CacheKey string
 	// MaxAge is zero for a source whose data carries its own timestamp, since
 	// that says more about freshness than the file's date does.
@@ -61,21 +64,27 @@ func New(cacheDir string, offline bool) *Client {
 	}
 }
 
-// Fetch returns the body of req.URL, or the cached copy when the live answer
-// fails or does not parse. Only a body Valid has read ever reaches the cache.
+// Fetch returns the body of req.URL, falling back to req.Mirror and then to the
+// cached copy. Only a body Valid has read ever reaches the cache.
 func (c *Client) Fetch(ctx context.Context, req Request) ([]byte, error) {
 	if c.Offline {
-		// Skipping the cache too is what makes the degraded map testable.
+		// Skipping the cache and the mirror too is what makes the degraded map
+		// testable.
 		return nil, ErrOffline
 	}
 
-	body, err := c.get(ctx, req.URL)
+	body, err := c.live(ctx, req, req.URL)
 	if err == nil {
-		if err = req.Valid(body); err == nil {
-			c.store(req.CacheKey, body)
-			return body, nil
+		return body, nil
+	}
+
+	if req.Mirror != "" {
+		mirrored, mirrorErr := c.live(ctx, req, req.Mirror)
+		if mirrorErr == nil {
+			log.Printf("%s failed (%v), using the mirror", req.CacheKey, err)
+			return mirrored, nil
 		}
-		err = fmt.Errorf("live answer rejected: %w", err)
+		log.Printf("%s mirror failed too: %v", req.CacheKey, mirrorErr)
 	}
 
 	cached, cacheErr := c.load(req.CacheKey, req.MaxAge)
@@ -88,6 +97,20 @@ func (c *Client) Fetch(ctx context.Context, req Request) ([]byte, error) {
 	}
 	log.Printf("%s failed (%v), using the cached copy", req.CacheKey, err)
 	return cached, nil
+}
+
+// live fetches one endpoint and keeps the body as the cached copy, but only
+// once Valid has read it: upstream answers an over-quota request with prose.
+func (c *Client) live(ctx context.Context, req Request, url string) ([]byte, error) {
+	body, err := c.get(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	if err := req.Valid(body); err != nil {
+		return nil, fmt.Errorf("answer rejected: %w", err)
+	}
+	c.store(req.CacheKey, body)
+	return body, nil
 }
 
 func (c *Client) get(ctx context.Context, url string) ([]byte, error) {

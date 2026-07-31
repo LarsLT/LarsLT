@@ -172,6 +172,135 @@ func TestFetchRejectsBodiesNoParserWouldCatch(t *testing.T) {
 	}
 }
 
+// TestMirrorAnswersWhenTheLiveEndpointWillNot covers the steady state on a
+// hosted runner: the shared address is over quota before the build starts.
+func TestMirrorAnswersWhenTheLiveEndpointWillNot(t *testing.T) {
+	cases := []struct {
+		name  string
+		reply http.HandlerFunc
+	}{
+		{"over quota", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Retry-After", "3600")
+			w.WriteHeader(http.StatusTooManyRequests)
+		}},
+		{"throttled behind a 200", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`{"detail":"Request was throttled."}`))
+		}},
+	}
+
+	good := readTestdata(t, "launches.json")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			live := serve(t, tc.reply)
+			mirror := serve(t, func(w http.ResponseWriter, r *http.Request) {
+				w.Write(good)
+			})
+
+			body, err := testClient(dir).Fetch(context.Background(), Request{
+				URL: live.URL, Mirror: mirror.URL, CacheKey: "launches",
+				MaxAge: launchMaxAge, Valid: validLaunches,
+			})
+			if err != nil {
+				t.Fatalf("fetch: %v", err)
+			}
+			if !bytes.Equal(body, good) {
+				t.Errorf("caller got %d bytes, want the mirror's %d", len(body), len(good))
+			}
+
+			onDisk, err := os.ReadFile(filepath.Join(dir, "launches.json"))
+			if err != nil {
+				t.Fatalf("the mirror's answer was not cached: %v", err)
+			}
+			if !bytes.Equal(onDisk, good) {
+				t.Errorf("cached %d bytes, want %d", len(onDisk), len(good))
+			}
+		})
+	}
+}
+
+func TestMirrorIsLeftAloneWhenTheLiveEndpointAnswers(t *testing.T) {
+	good := readTestdata(t, "launches.json")
+	live := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write(good)
+	})
+	mirror := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("the mirror was asked for a feed the live endpoint had served")
+	})
+
+	if _, err := testClient(t.TempDir()).Fetch(context.Background(), Request{
+		URL: live.URL, Mirror: mirror.URL, CacheKey: "launches",
+		MaxAge: launchMaxAge, Valid: validLaunches,
+	}); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+}
+
+// TestMirrorBeatsTheCache pins the order: a mirror is a live answer, and the
+// cached copy is however old the last outage left it.
+func TestMirrorBeatsTheCache(t *testing.T) {
+	dir := t.TempDir()
+	seedCache(t, dir, "launches", []byte(`{"results":[{"name":"stale"}]}`), 12*time.Hour)
+	good := readTestdata(t, "launches.json")
+
+	live := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "over quota", http.StatusTooManyRequests)
+	})
+	mirror := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write(good)
+	})
+
+	body, err := testClient(dir).Fetch(context.Background(), Request{
+		URL: live.URL, Mirror: mirror.URL, CacheKey: "launches",
+		MaxAge: launchMaxAge, Valid: validLaunches,
+	})
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if !bytes.Equal(body, good) {
+		t.Error("the cached copy won over a mirror that answered")
+	}
+}
+
+// TestCacheStillCatchesBothEndpointsDown is the layer under the mirror: the
+// throttle that reaches one endpoint usually reaches the other.
+func TestCacheStillCatchesBothEndpointsDown(t *testing.T) {
+	dir := t.TempDir()
+	good := readTestdata(t, "launches.json")
+	seedCache(t, dir, "launches", good, time.Hour)
+
+	down := func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "over quota", http.StatusTooManyRequests)
+	}
+	live, mirror := serve(t, down), serve(t, down)
+
+	body, err := testClient(dir).Fetch(context.Background(), Request{
+		URL: live.URL, Mirror: mirror.URL, CacheKey: "launches",
+		MaxAge: launchMaxAge, Valid: validLaunches,
+	})
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if !bytes.Equal(body, good) {
+		t.Error("the cached copy was not served")
+	}
+}
+
+func TestOfflineFetchesNeitherEndpoint(t *testing.T) {
+	reached := func(w http.ResponseWriter, r *http.Request) {
+		t.Error("offline mode reached the network")
+	}
+	live, mirror := serve(t, reached), serve(t, reached)
+
+	c := testClient(t.TempDir())
+	c.Offline = true
+	if _, err := c.Fetch(context.Background(), Request{
+		URL: live.URL, Mirror: mirror.URL, CacheKey: "launches", Valid: validLaunches,
+	}); err != ErrOffline {
+		t.Fatalf("got %v, want ErrOffline", err)
+	}
+}
+
 func TestStaleCacheIsRejected(t *testing.T) {
 	good := readTestdata(t, "launches.json")
 	cases := []struct {
