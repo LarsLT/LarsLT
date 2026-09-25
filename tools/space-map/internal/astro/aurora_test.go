@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // angularDistance between two points on a sphere, in degrees. The dot product

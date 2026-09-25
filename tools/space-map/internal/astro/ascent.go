@@ -3,7 +3,7 @@ package astro
 import (
 	"math"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // LaunchAzimuth is the bearing flown to reach an inclination from a pad, degrees

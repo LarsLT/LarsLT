@@ -3,7 +3,7 @@ package astro
 import (
 	"math"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // The geomagnetic north pole for the current epoch. It drifts about a tenth of

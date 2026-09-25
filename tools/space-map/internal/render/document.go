@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // lonX and latY are the projection, re-exported at package level so the layer

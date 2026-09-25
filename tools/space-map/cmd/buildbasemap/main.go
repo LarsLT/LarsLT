@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/render"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/render"
 )
 
 // Pinned to a tag, not master, so a rerun reproduces the committed basemap.

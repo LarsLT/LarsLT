@@ -2,7 +2,7 @@
 // is CSS-only: GitHub strips <script>, so motion is @keyframes and offset-path.
 package render
 
-import "github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+import "github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 
 // Canvas layout. No title bar: the picture says what it is, so the only chrome
 // is the legend and ticker below the map.

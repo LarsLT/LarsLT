@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/data"
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/astro"
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/render"
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/sources"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/data"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/astro"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/render"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/sources"
 )
 
 func main() {

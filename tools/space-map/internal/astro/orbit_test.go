@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // A real ISS element set, kept in its three pieces so a test can damage one

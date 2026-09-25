@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/render"
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/sources"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/render"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/sources"
 )
 
 // vandenberg is the busiest pad in the feed and the one the plain formula gets

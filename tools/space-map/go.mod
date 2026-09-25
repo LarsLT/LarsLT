@@ -1,3 +1,3 @@
-module github.com/LarsLT/LarsLT/tools/space-map
+module github.com/LqrsLT/LqrsLT/tools/space-map
 
 go 1.25

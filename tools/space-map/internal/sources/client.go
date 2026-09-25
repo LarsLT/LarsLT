@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	userAgent  = "LarsLT-space-map (+https://github.com/LarsLT/LarsLT)"
+	userAgent  = "LqrsLT-space-map (+https://github.com/LqrsLT/LqrsLT)"
 	timeout    = 20 * time.Second
 	retryPause = 3 * time.Second
 	maxBody    = 8 << 20

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/astro"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/astro"
 )
 
 // tleURL is Celestrak's element set for object 25544, the ISS.

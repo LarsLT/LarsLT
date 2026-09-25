@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // TestLaunchAzimuth checks the pads where the answer is not in dispute: due

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // Physical constants for the propagator, in kilometres and seconds.

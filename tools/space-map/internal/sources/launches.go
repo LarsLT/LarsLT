@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // launchesURL asks for enough launches to cover a month. The upcoming feed is

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // oval fills a grid with a band between two latitudes, over the longitudes

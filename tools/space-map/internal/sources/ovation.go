@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/astro"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/astro"
 )
 
 // ovationURL is SWPC's OVATION model: an aurora probability for every whole

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 var epoch = time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)

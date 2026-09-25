@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // xmlErr reports whether a fragment parses, so a test can assert both ways.

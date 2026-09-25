@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // SolarDay is one turn of the Earth relative to the sun, which is what the

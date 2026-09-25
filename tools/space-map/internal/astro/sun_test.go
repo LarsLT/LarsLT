@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/LarsLT/LarsLT/tools/space-map/internal/geo"
+	"github.com/LqrsLT/LqrsLT/tools/space-map/internal/geo"
 )
 
 // solarElevation is the textbook formula, kept here as an independent check on
