@@ -1,7 +1,7 @@
 # marketplaces/
 
 This project consumes the **`claude-kit`** marketplace:
-https://github.com/LarsLT/claude-kit (private).
+https://github.com/LqrsLT/claude-kit (private).
 
 It is declared in `.claude/settings.json` under `extraKnownMarketplaces`, so there is
 no config file to keep here — this folder is just the documented home for the decision.

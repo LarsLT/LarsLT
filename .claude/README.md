@@ -1,6 +1,6 @@
 # .claude/
 
-Claude Code configuration for the **`LarsLT/LarsLT` profile README** repo. Everything here
+Claude Code configuration for the **`LqrsLT/LqrsLT` profile README** repo. Everything here
 except `settings.local.json` is tracked in git, so the setup is the same on every machine.
 
 ## What lives where
@@ -12,7 +12,7 @@ except `settings.local.json` is tracked in git, so the setup is the same on ever
   The space-map animation lives in `dev/proposed/space-map/`.
 - **`rules/`** — hard rules. `git.md`: single-branch `main`, never push.
 - **`hooks/`** — project-local hooks. Shared formatting/comment-lint hooks ship via `claude-kit`.
-- **`marketplaces/`, `plugins/`** — this repo consumes the `LarsLT/claude-kit` marketplace;
+- **`marketplaces/`, `plugins/`** — this repo consumes the `LqrsLT/claude-kit` marketplace;
   see `marketplaces/README.md`.
 - **`settings.json`** — shared perms, marketplaces, enabled plugins. `settings.local.json`
   is personal and gitignored.
@@ -25,7 +25,7 @@ matching `rules/*.md`. Don't let knowledge live only in chat.
 ## Shared configuration (claude-kit)
 
 Some config comes from the private `claude-kit` marketplace
-(https://github.com/LarsLT/claude-kit), declared in `settings.json::extraKnownMarketplaces`
+(https://github.com/LqrsLT/claude-kit), declared in `settings.json::extraKnownMarketplaces`
 and enabled per-plugin in `settings.json::enabledPlugins`.
 
 | Provided by claude-kit | Stays in this repo |

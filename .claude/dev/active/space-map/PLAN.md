@@ -161,7 +161,7 @@ seeded launch layer is exactly what would hide it.
       paths were exercised locally. The SWPC probe logs its status code and cannot fail
       the run.  **Still unrun on a real runner: needs a `workflow_dispatch` after push.**
 - [x] M10. README: new section above the snake, embedding
-      `raw.githubusercontent.com/LarsLT/LarsLT/space/space-map.svg`, plus the static space
+      `raw.githubusercontent.com/LqrsLT/LqrsLT/space/space-map.svg`, plus the static space
       paragraph and a note about the 60-day inactivity pause. **The paragraph is a draft in
       Claude's voice and wants rewriting in Lars's.** No `<picture>` pair, the map is
       dark-only by design.
@@ -227,7 +227,7 @@ du -h dist/space-map.svg                      # target under 250 KB
 ```
 
 End to end: run the workflow with `workflow_dispatch`, confirm the `space` branch updates,
-then load `github.com/LarsLT` and check the animation actually plays through camo. That is
+then load `github.com/LqrsLT` and check the animation actually plays through camo. That is
 the only test that counts, camo is the one hop that can break it. Check again an hour later
 to confirm the baked clock kept the terminator moving without a rebuild.
 

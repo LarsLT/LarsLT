@@ -1,6 +1,6 @@
 # Profile README — how it renders and how not to break it
 
-This repo's `README.md` renders at https://github.com/LarsLT. Everything below is about
+This repo's `README.md` renders at https://github.com/LqrsLT. Everything below is about
 getting pixels onto that page reliably.
 
 ## The camo image proxy
@@ -45,7 +45,7 @@ For a single-mood piece (e.g. a starfield), a dark-only SVG is fine; skip the pa
 1. An Actions workflow runs on a cron (`schedule:`) plus `workflow_dispatch`.
 2. It generates SVG(s) into a build dir.
 3. It publishes the build dir to a **dedicated output branch** — snake uses `output`.
-4. The README embeds the SVG via a `raw.githubusercontent.com/LarsLT/LarsLT/<branch>/<file>` URL.
+4. The README embeds the SVG via a `raw.githubusercontent.com/LqrsLT/LqrsLT/<branch>/<file>` URL.
 
 Rules of thumb for a new one:
 
@@ -64,6 +64,6 @@ Rules of thumb for a new one:
 
 - Local, for a generator: build the SVG and open it (`xdg-open dist/<name>.svg`); grep it for
   `<script` (expect 0) and for `http` external refs (expect none).
-- End to end: the only test that counts is loading **github.com/LarsLT** and watching it render
+- End to end: the only test that counts is loading **github.com/LqrsLT** and watching it render
   and animate through camo. For a baked-clock animation, check again later to confirm it kept
   moving between rebuilds.
